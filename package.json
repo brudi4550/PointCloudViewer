@@ -1,7 +1,7 @@
 {
-  "name": "easylasviewer",
+  "name": "PointCloudViewer",
   "version": "1.0.0",
-  "description": "View LAS files using Potree and PotreeConverter",
+  "description": "Viewing point clouds in the browser made easy.",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
