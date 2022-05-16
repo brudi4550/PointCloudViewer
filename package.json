@@ -1,0 +1,23 @@
+{
+  "name": "easylasviewer",
+  "version": "1.0.0",
+  "description": "View LAS files using Potree and PotreeConverter",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "LAS",
+    "LIDAR",
+    "Potree",
+    "Point",
+    "Cloud"
+  ],
+  "author": "JKU CE",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1",
+    "helmet": "^5.0.2",
+    "pug": "^3.0.2"
+  }
+}
