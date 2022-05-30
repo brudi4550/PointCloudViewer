@@ -14,38 +14,13 @@ html
   body
     nav.navbar.navbar-dark.bg-dark.navbar-expand-md
       div.container-fluid
-        a.navbar-brand.abs#navbar-brand(href='/') PointCloudViewer
+        a.navbar-brand.abs#navbar-brand(href='/uploadPointCloud') PointCloudViewer
         i.bi.bi-question-circle.nav-item.ms-auto.clickable#modal-button
     .container
-      a(href='/upload') 
-        button.btn.btn-dark.point-cloud-button Upload Point Cloud
-      button.btn.btn-dark.point-cloud-button Connect to S3 Bucket containing point clouds
-      .row
-        h2.text-white Table 1
-        table.table.table-dark.table-bordered.table-hover
-          tr
-            th Data
-            th Data 
-            th Link to point cloud
-          tr
-          each val in [1, 2, 3, 4, 5]
-            tr
-              td Some Data 
-              td Some Data 
-              td Link
-      .row
-        h2.text-white Table 2
-        table.table.table-dark.table-bordered.table-hover
-          tr
-            th Data
-            th Data 
-            th Link to point cloud
-          tr
-          each val in [1, 2, 3, 4, 5]
-            tr
-              td Some Data 
-              td Some Data 
-              td Link
+      form(action='upload', method='post', enctype='multipart/form-data')
+        input(type='file', name='fileToUpload')
+        br
+        input(type='submit')
     div#modal
       div#modal-content
         span#close-modal
