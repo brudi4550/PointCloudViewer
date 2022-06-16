@@ -1,3 +1,7 @@
+# fu and converter shoudl not be pushed
+fu
+PotreeConverter
+
 # Logs
 logs
 *.log
