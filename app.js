@@ -21,7 +21,18 @@ const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
 fs.ensureDir(uploadPath); // Make sure that he upload path exits
 
 app.get('/', (req, res) => {
+  // List is hardcoded now will be Get request to bucket later
+  let cloud1 = {
+    name: 'Cloud 1',
+    url: 'http://test.at'
+  }
+  let cloud2 = {
+    name: 'Cloud 2',
+    url: 'http://test.at'
+  }
+  let clouds = [cloud1, cloud2]
   res.render('index', {
+    clouds: clouds,
     title: 'PointCloudViewer',
   })
 })
