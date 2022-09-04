@@ -84,6 +84,10 @@ h1, p, textarea, a, button {
     cursor: pointer;
 }
 
+#loading {
+  visibility: hidden;
+}
+
 #canvas {
     padding-top: 10px;
 }

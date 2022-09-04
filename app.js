@@ -45,9 +45,9 @@ app.get('/fileconvert', (req, res) => {
 
 app.post('/fileconvert', (req, res) => {
   console.log('Converting the file has started');
-  const path = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/';
+  const path = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/PotreeConverter/';
 
-  exec(path+'PotreeConverter/PotreeConverter.exe '+path+'fu/test_punkt_wolke.las -o '+path+'fu/test -generate-page testpage', (error, stdout, stderr) => {
+  exec(path+'PotreeConverter.exe '+path+'point_cloud.las -o '+path+'test', (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       return;
@@ -56,9 +56,10 @@ app.post('/fileconvert', (req, res) => {
       console.log(`stderr: ${stderr}`);
       return;
     }
+    console.log('TEST');
     console.log(`stdout: ${stdout}`);
+    res.redirect('back')
   });
-  res.redirect('back')
 })
 
 app.get('/upload', (req, res) => {
@@ -102,24 +103,3 @@ app.route('/upload').post(async (req, res, next) => {
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
 })
-
-function convertFilePromise(filename){
-  console.log(`Converting the file ${filename} has started`);
-  const path_local = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/';
-  return new Promise(function(resolve, reject) {
-    exec(`${path_local}PotreeConverter/PotreeConverter.exe ${path_local}fu/${filename} -o ${path_local}/fu/test -generate-page testpage`, (error, stdout, stderr) => {
-      if (error) {
-        console.log(`error: ${error.message}`);
-        reject(error)
-        return;
-      }
-      if (stderr) {
-        console.log(`stderr: ${stderr}`);
-        reject(stderr)
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      resolve('success')
-    });
-  });
-}
