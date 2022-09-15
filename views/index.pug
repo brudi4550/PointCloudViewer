@@ -18,11 +18,11 @@ html
     .container
       a(href='/upload') 
         button.btn.btn-dark.point-cloud-button Upload Point Cloud
-      button.btn.btn-dark.point-cloud-button Connect to S3 Bucket containing point clouds
+      button.btn.btn-dark.point-cloud-button Log in
       a(href='/fileconvert')
         button.btn.btn-dark.convert-file-button Convert File
       .row
-        h2.text-white Table  1
+        h2.text-white Public Clouds
         table.table.table-dark.table-bordered.table-hover
           tr
             th Data
@@ -31,11 +31,11 @@ html
           tr
           each cloud in clouds
             tr
-              td #{cloud.name} 
+              td #{cloud.cloud_name} 
               td Some Data 
-              td #{cloud.url}
+              td #{cloud.link}
       .row
-        h2.text-white Table 2
+        h2.text-white My Clouds
         table.table.table-dark.table-bordered.table-hover
           tr
             th Data

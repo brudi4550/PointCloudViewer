@@ -6,7 +6,8 @@ const fs = require('fs-extra');             // Classic fs
 const port = 3000;
 const { exec, execFile } = require("child_process");
 const { stderr } = require('process');
-const path_to_las = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/';
+const AWS = require('aws-sdk');
+const dbService = require('./databaseService');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -20,24 +21,27 @@ app.use(busboy({
 const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
 fs.ensureDir(uploadPath); // Make sure that he upload path exits
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   // List is hardcoded now will be Get request to bucket later
-  let cloud1 = {
-    name: 'Cloud 1',
-    url: 'http://test.at'
+  function callback (result)  {
+    let clouds = result
+    res.render('index', {
+      clouds: clouds,
+      title: 'PointCloudViewer',
+    })
   }
-  let cloud2 = {
-    name: 'Cloud 2',
-    url: 'http://test.at'
-  }
-  let clouds = [cloud1, cloud2]
-  res.render('index', {
-    clouds: clouds,
-    title: 'PointCloudViewer',
-  })
+  dbService.getClouds(callback);
 })
 
 app.get('/fileconvert', (req, res) => {
+  s3.listObjects(params, function(err, data) {
+    if (err) {
+      console.log("Error", err);
+    } else {
+      console.log("Success", data);
+      console.log('Itemcount: ' + data.Contents.length)
+    }
+  });
   res.render('fileconvert', {
     title: 'PointCloudViewer',
   })
