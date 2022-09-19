@@ -11,6 +11,10 @@ html
     link(rel="stylesheet" href="css/styles.css")
     link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css")
   body
+    form(id='uploadForm')
+      input(type='file', name='fileToUpload' id='fileToUpload' required)
+      br
+      input(type='submit' id='beginUpload')
     nav.navbar.navbar-dark.bg-dark.navbar-expand-md
       div.container-fluid
         a.navbar-brand.abs#navbar-brand(href='/') PointCloudViewer
@@ -53,3 +57,4 @@ html
           i.bi.bi-x-lg 
         p information on how to use the point cloud viewer
     script(src="js/main.js")
+    script(src="js/upload.js")
