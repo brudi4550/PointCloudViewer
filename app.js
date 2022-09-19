@@ -5,9 +5,9 @@ const path = require('path');               // Used for manipulation with path
 const fs = require('fs-extra');             // Classic fs
 const port = 3000;
 const { exec, execFile } = require("child_process");
-const { stderr } = require('process');
-const AWS = require('aws-sdk');
 const dbService = require('./databaseService');
+const cookieParser = require("cookie-parser");
+const sessions = require('express-session');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -18,10 +18,24 @@ app.use(busboy({
     highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
 })); // Insert the busboy middle-ware
 
+
+app.use(cookieParser());
+
+const oneHour = 1000 * 60 * 60;
+app.use(sessions({
+  secret:'willBeAddedLater',
+  saveUninitialized:true,
+  cookie: { maxAge: oneHour},
+  resave: false
+}));
+
 const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
 fs.ensureDir(uploadPath); // Make sure that he upload path exits
 
 app.get('/', async (req, res) => {
+  var session = req.session;
+  console.log(session.userid);
+  console.log(session);
   // List is hardcoded now will be Get request to bucket later
   function callback (result)  {
     let clouds = result
@@ -33,15 +47,13 @@ app.get('/', async (req, res) => {
   dbService.getClouds(callback);
 })
 
+app.get('/login', (req, res) => {
+  res.render('login', {
+    title: 'PointCloudViewer',
+  })
+})
+
 app.get('/fileconvert', (req, res) => {
-  s3.listObjects(params, function(err, data) {
-    if (err) {
-      console.log("Error", err);
-    } else {
-      console.log("Success", data);
-      console.log('Itemcount: ' + data.Contents.length)
-    }
-  });
   res.render('fileconvert', {
     title: 'PointCloudViewer',
   })
@@ -49,9 +61,8 @@ app.get('/fileconvert', (req, res) => {
 
 app.post('/fileconvert', (req, res) => {
   console.log('Converting the file has started');
-  const path = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/PotreeConverter/';
-
-  exec(path+'PotreeConverter.exe '+path+'point_cloud.las -o '+path+'test', (error, stdout, stderr) => {
+  const path = '---';
+  exec(path+'/PotreeConverter.exe '+'PotreeConverter/point_cloud.las -o PotreeConverter/test', (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       return;
@@ -60,10 +71,32 @@ app.post('/fileconvert', (req, res) => {
       console.log(`stderr: ${stderr}`);
       return;
     }
-    console.log('TEST');
     console.log(`stdout: ${stdout}`);
     res.redirect('back')
   });
+})
+
+app.post('/login', (req, res) => {
+  function callback (error, result) {
+    if(error) {
+      console.log('Error when tryed to log in');
+      res.redirect;
+    } else {
+      console.log(result);
+      if(result.length > 0) {
+        function callback (error, result) {
+          req.session.userid=req.body.username;
+          res.session = req.session;
+          res.status(200).redirect('/');
+        }
+        dbService.createSession(req.body.username, Date.now(), callback)
+      } else {
+        req.session.destroy();
+        res.status(401).redirect('/login');
+      }
+    }
+  }
+  dbService.login(req.body.username, req.body.password, callback);
 })
 
 app.get('/upload', (req, res) => {
