@@ -1,0 +1,16 @@
+extends base.pug
+block content
+  a.btn.btn-light(href='/login') Connect to S3 Bucket
+  .row
+    h2.text-white Openly available point clouds
+    table.table.table-dark.table-bordered.table-hover
+      tr
+        th Name
+        th Location
+        th Size
+      tr
+      each val in [1, 2, 3, 4, 5]
+        tr
+          td Some Data
+          td Some Data 
+          td Link
