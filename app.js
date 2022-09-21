@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('multer');
 const sessions = require('express-session');
 const dotenv = require('dotenv').config();
 const app = express();
@@ -7,6 +8,7 @@ const path = require('path');               // Used for manipulation with path
 const fs = require('fs-extra');             // Classic fs
 const port = 3000;
 const { exec, execFile } = require("child_process");
+const { stderr } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
 const { S3Client } = require("@aws-sdk/client-s3");
@@ -149,6 +151,53 @@ app.route('/upload').post(async (req, res, next) => {
     })
   });
 });
+
+app.put('/multipart-upload', (request, response) => {
+  // 
+});
+
+// controls the server-side-storage of multipart-uploads
+const storage = multer.diskStorage({
+  destination: "./uploadFiles/",
+  filename: function (request, file, callback) {
+    callback(null, file.originalname + request.body.part);
+    // callback(null, request.body.name + request.body.part);
+  },
+});
+const upload = multer({ storage: storage });
+
+app.post('/multipart-upload', upload.single("fileToUpload"), (request, response) => {
+  // Hier kommt der jeweilige Chunk rein. Gespeichert wird der Chunk ohne weiteres Zutun im angegebenen storage.
+
+  // TODO: Basierend auf den Metadaten des Post-Requests muss sich der storage entsprechend anpassen.
+
+  // Wenn der Upload fertig ist (TODO: part = 2 muss dynamisch werden), dann werden alle Chunks zusammengeführt und im fertig-Folder abgelegt:
+  if (request.body.part == 2) {
+    let uploadPath = path.join(__dirname, "uploadFiles");
+    fs.readdir(uploadPath, function (err, filenames) { 
+      if (err) return console.error("ERROR in fs.readdir(...): ", err); 
+      filenames.forEach(function (filename) {
+        fs.stat(uploadPath + "/" + filename, (err, stats) => {
+          if (err) return console.error("ERROR in fs.stat(...): ", err); 
+          if (stats.isFile()) {
+            fs.readFile(uploadPath + "/" + filename, function(err, data) { 
+              if (err) return console.error("ERROR in fs.readFile(...): ", err); 
+              // appendFile erstellt Datei, wenn nicht vorhanden, unter dem gegebenen Pfad und Namen, und fügt Daten an,
+              // Pfad (Folder) muss bereits vorhanden sein, sonst error
+              fs.appendFile('./uploadFiles/fertig/dia druck.jpg', data, function (err) { 
+                if (err) return console.error("ERROR in fs.appendFile(...): ", err);
+              });  
+            });
+          }; 
+        });
+      });
+    });
+  }
+  console.log('Multipart-Upload-Anfrage angekommen, hurra!');
+  console.log(request.body, request.file);
+  console.log("Part = ", request.body.part);
+  response.json("Ich bin die Antwort vom Post-Request für den Multipart-Upload!");
+})
 
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
