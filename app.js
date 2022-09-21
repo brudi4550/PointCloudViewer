@@ -7,19 +7,9 @@ const path = require('path');               // Used for manipulation with path
 const fs = require('fs-extra');             // Classic fs
 const port = 3000;
 const { exec, execFile } = require("child_process");
+const dbService = require('./databaseService');
+const cookieParser = require("cookie-parser");
 const { S3Client } = require("@aws-sdk/client-s3");
-
-//session settings
-const oneDay = 1000 * 60 * 60 * 24;
-app.use(sessions({
-  secret: process.env.COOKIE_SECRET,
-  saveUninitialized: true,
-  cookie: { maxAge: oneDay },
-  resave: false
-}));
-var session;
-
-const users = [];
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -31,22 +21,33 @@ app.use(busboy({
   highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
 })); // Insert the busboy middle-ware
 
+
+app.use(cookieParser());
+
+const oneHour = 1000 * 60 * 60;
+app.use(sessions({
+  secret: 'willBeAddedLater',
+  saveUninitialized: true,
+  cookie: { maxAge: oneHour },
+  resave: false
+}));
+
 const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
 fs.ensureDir(uploadPath); // Make sure that he upload path exits
 
-app.get('/', (req, res) => {
-  session = req.session;
-  if (session.id) {
-    var user = users[session.id];
+app.get('/', async (req, res) => {
+  var session = req.session;
+  console.log(session.userid);
+  console.log(session);
+  // List is hardcoded now will be Get request to bucket later
+  function callback(result) {
+    let clouds = result
     res.render('index', {
+      clouds: clouds,
       title: 'PointCloudViewer',
-      user: session.id
-    })
-  } else {
-    res.render('public', {
-      title: 'PointCloudViewer'
     })
   }
+  dbService.getClouds(callback);
 })
 
 app.get('/register', (req, res) => {
@@ -65,21 +66,6 @@ app.get('/login', (req, res) => {
   })
 });
 
-app.post('/auth', (req, res) => {
-  const username = req.body.username;
-  const password = req.body.password;
-  const client = new S3Client({
-    
-  })
-  if (username in users && password == password ) {
-    
-  } 
-
-  res.render('public', {
-    title: 'Logged in'
-  })
-});
-
 app.get('/fileconvert', (req, res) => {
   res.render('fileconvert', {
     title: 'PointCloudViewer',
@@ -88,9 +74,8 @@ app.get('/fileconvert', (req, res) => {
 
 app.post('/fileconvert', (req, res) => {
   console.log('Converting the file has started');
-  const path = 'C:/Users/Asus/OneDrive/Desktop/Uni/SS2022/IT_Projekt/PointCloudViewer/';
-
-  exec(path + 'PotreeConverter/PotreeConverter.exe ' + path + 'fu/test_punkt_wolke.las -o ' + path + 'fu/test -generate-page testpage', (error, stdout, stderr) => {
+  const path = '---';
+  exec(path + '/PotreeConverter.exe ' + 'PotreeConverter/point_cloud.las -o PotreeConverter/test', (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       return;
@@ -100,8 +85,31 @@ app.post('/fileconvert', (req, res) => {
       return;
     }
     console.log(`stdout: ${stdout}`);
+    res.redirect('back')
   });
-  res.redirect('back')
+})
+
+app.post('/login', (req, res) => {
+  function callback(error, result) {
+    if (error) {
+      console.log('Error when tryed to log in');
+      res.redirect;
+    } else {
+      console.log(result);
+      if (result.length > 0) {
+        function callback(error, result) {
+          req.session.userid = req.body.username;
+          res.session = req.session;
+          res.status(200).redirect('/');
+        }
+        dbService.createSession(req.body.username, Date.now(), callback)
+      } else {
+        req.session.destroy();
+        res.status(401).redirect('/login');
+      }
+    }
+  }
+  dbService.login(req.body.username, req.body.password, callback);
 })
 
 app.get('/upload', (req, res) => {
@@ -110,22 +118,35 @@ app.get('/upload', (req, res) => {
   })
 })
 
-
-app.route('/upload').post((req, res, next) => {
+app.route('/upload').post(async (req, res, next) => {
   console.log('received post request');
-  req.pipe(req.busboy); // Pipe it trough busboy
-  req.busboy.on('file', (fieldname, file, filename) => {
-    console.log(`Upload of '${filename}' started`);
-    // Create a write stream of the new file
-    //fix naming + file type of uploaded file
-    const fstream = fs.createWriteStream(path.join(uploadPath, fieldname));
-    // Pipe it trough
-    file.pipe(fstream);
-    // On finish of the upload
-    fstream.on('close', () => {
-      console.log(`Upload of '${filename}' finished`);
-      res.redirect('back');
-    });
+  var awaitUpload = new Promise(function (resolve, reject) {
+    try {
+      req.pipe(req.busboy); // Pipe it trough busboy
+      req.busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        console.log(fieldname)
+        console.log(filename.filename)
+        console.log(`Upload of '${filename.filename}' started`);
+        // Create a write stream of the new file
+        //fix naming + file type of uploaded file
+        const fstream = fs.createWriteStream(path.join(uploadPath, filename.filename));
+        // Pipe it trough
+        file.pipe(fstream);
+        // On finish of the upload
+        fstream.on('close', () => {
+          console.log(`Upload of '${filename.filename}' finished`);
+          resolve(filename.filename)
+        });
+      });
+    } catch (error) {
+      reject(error)
+    }
+  })
+  awaitUpload.then(resolve => {
+    convertFilePromise(resolve).then(resolve2 => {
+      console.log('Request has been returned')
+      res.redirect('back')
+    })
   });
 });
 

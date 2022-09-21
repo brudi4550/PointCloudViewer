@@ -1,19 +1,12 @@
-extends index.pug 
-
-block content 
-    .container
-        div.row
-            div.col-md-3
-            div.text-center.col-md-6
-                h1 Login
-                form(action="auth" method="post")
-                    label(for="username") Username
-                    input(type="text" placeholder="Enter Username" name="username" required)
-
-                    label(for="password") Password
-                    input(type="password" placeholder="Enter Password" name="password" required)
-
-                    button(type="submit") Login
-                div.text-left
-                    p form
-            div.col-md-3
+extends base.pug
+block content
+  .container
+    form(method="POST" action="/login")
+      label(for = "username") Username:
+      input(type = "text", name = "username")
+      br
+      label(for = "password") Password:
+      input(type = "password", name = "password")
+      br
+      input(type = "submit", name = "submit", value = "submit")
+  script(src="js/login.js")
