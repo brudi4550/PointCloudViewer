@@ -1,11 +1,12 @@
 const mysql = require('mysql');
+const dotenv = require('dotenv').config();
 
 async function getClouds(callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
     });
 
     connection.connect(function(err) {
@@ -23,11 +24,11 @@ async function getClouds(callback) {
 
 async function login(username, passwordhash, callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
-    });
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    }); 
 
     connection.connect(function(err) {
         if(err) {
@@ -49,11 +50,11 @@ async function login(username, passwordhash, callback) {
 
 function createSession(username, expiration, callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
-    });
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    }); 
 
     connection.connect(function(err) {
         if(err) {
