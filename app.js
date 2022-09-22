@@ -35,17 +35,28 @@ fs.ensureDir(uploadPath); // Make sure that he upload path exits
 app.get('/', async (req, res) => {
   var session = req.session;
   console.log(session.userid);
-  console.log(session);
+  function callback(error, result) {
+    if(error) {
+      console.log(error);
+    } else {
+      console.log(result)
+      res.render('index', {
+        clouds: [],
+        title: 'PointCloudViewer',
+      })
+    }
+  }
+  dbService.checkIfValidSession(session.userid, callback)
+})
   // List is hardcoded now will be Get request to bucket later
-  function callback (result)  {
+  /*function callback (result)  {
     let clouds = result
     res.render('index', {
       clouds: clouds,
       title: 'PointCloudViewer',
     })
   }
-  dbService.getClouds(callback);
-})
+  dbService.getClouds(callback);*/
 
 app.get('/login', (req, res) => {
   res.render('login', {
@@ -84,12 +95,18 @@ app.post('/login', (req, res) => {
     } else {
       console.log(result);
       if(result.length > 0) {
-        function callback (error, result) {
-          req.session.userid=req.body.username;
-          res.session = req.session;
-          res.status(200).redirect('/');
+        function innerCallback (error, result) {
+          if(error) {
+            req.session.destroy();
+            res.status(401).redirect('/login');
+          } else {
+            req.session.userid=req.body.username;
+            res.session = req.session;
+            res.status(200).redirect('/');
+          }
+          
         }
-        dbService.createSession(req.body.username, Date.now(), callback)
+        dbService.createSession(req.body.username, Date.now(), innerCallback)
       } else {
         req.session.destroy();
         res.status(401).redirect('/login');
