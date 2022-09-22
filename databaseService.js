@@ -1,10 +1,11 @@
 const mysql = require('mysql');
+const dotenv = require('dotenv').config();
 
 async function getClouds(callback) {
     var connection = mysql.createConnection({
-        host     : "database-pointcloudviewer.cvohz8fwaj3u.eu-central-1.rds.amazonaws.com",
+        host     : "---",
         user     : "admin",
-        password : "F27RsZG5PECjYPNoWKuN",
+        password : "---",
         port     : "3306"
     });
 
@@ -23,9 +24,9 @@ async function getClouds(callback) {
 
 async function login(username, passwordhash, callback) {
     var connection = mysql.createConnection({
-        host     : "database-pointcloudviewer.cvohz8fwaj3u.eu-central-1.rds.amazonaws.com",
+        host     : "---",
         user     : "admin",
-        password : "F27RsZG5PECjYPNoWKuN",
+        password : "---",
         port     : "3306"
     });
 
@@ -49,9 +50,9 @@ async function login(username, passwordhash, callback) {
 
 function createSession(username, expiration, callback) {
     var connection = mysql.createConnection({
-        host     : "database-pointcloudviewer.cvohz8fwaj3u.eu-central-1.rds.amazonaws.com",
+        host     : "---",
         user     : "admin",
-        password : "F27RsZG5PECjYPNoWKuN",
+        password : "---",
         port     : "3306"
     });
 
@@ -61,13 +62,12 @@ function createSession(username, expiration, callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query("insert into session_table (user_name, expiration) values(?, ?);", 
+        connection.query("select user_name expiration from table session_table where username = ?;", 
             [
-                username,
-                expiration
+                username
             ], 
             function(error, result, fields) {
-                callback(error,result)
+                callback(error, result);
             });
         connection.end()
     }) 
