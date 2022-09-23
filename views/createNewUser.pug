@@ -1,7 +1,7 @@
 extends base.pug
 block content
   .container
-    form(method="POST" action="/login")
+    form(method="POST" action="/createNewUser")
       if error 
         h3 #{message}
       label(for = "username") Username:

@@ -1,12 +1,13 @@
 const mysql = require('mysql');
 const dotenv = require('dotenv').config();
+const crypto = require('crypto'); 
 
-async function getClouds(callback) {
+async function publicClouds(callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
     });
 
     connection.connect(function(err) {
@@ -15,19 +16,19 @@ async function getClouds(callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query('SELECT * FROM cloud_table WHERE public = TRUE;', function(error, result, fields) {
-            callback(result)
+        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE public = TRUE;', function(error, result, fields) {
+            callback(error, result, false)
         });
         connection.end()
-    })
+    });
 }
 
-async function login(username, passwordhash, callback) {
+async function privateClouds(username, callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
     });
 
     connection.connect(function(err) {
@@ -36,24 +37,105 @@ async function login(username, passwordhash, callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query("SELECT user_name FROM user_table WHERE user_name = ? AND password_hash = ?;", 
+        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE (public = FALSE and created_by = ?) or public = true;',
+        [
+            username
+        ],
+        function(error, result, fields) {
+            callback(error, result, true)
+        });
+        connection.end();
+    });
+}
+
+async function checkSession(username, callback) {
+    var connection = mysql.createConnection({
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    });
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query('SELECT expiration from session_table where user_name = ?;',
+            [
+                username
+            ], 
+            function(error, result, fields) {
+                callback(error, result)
+            });
+        connection.end();
+    });
+}
+
+async function login(username, password, callback) {
+    var connection = mysql.createConnection({
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    });
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query("SELECT salt, password_hash FROM user_table WHERE user_name = ?;", 
+            [
+                username
+            ], 
+            function(error, result, fields) {
+                if(error || !result ||result.length == 0) {
+                    callback(false);
+                } else {
+                    var passwordHash = crypto.pbkdf2Sync(password, result[0].salt, 1000, 64, `sha512`).toString(`hex`);
+                    callback(passwordHash === result[0].password_hash);                    
+                }
+            });
+        connection.end()
+    }); //TODO check when to close the db connection
+}
+
+function setNewSession(username, expiration, callback) {
+    var connection = mysql.createConnection({
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    });
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query("insert into session_table (user_name, expiration) values (?, ?) on duplicate key update expiration = ?;",
             [
                 username,
-                passwordhash
+                expiration,
+                expiration
             ], 
             function(error, result, fields) {
-                callback(error,result)
+                callback(error, result);
             });
-        connection.end()
-    })
+        connection.end();
+    });
 }
 
-function createSession(username, expiration, callback) {
+function createNewUser(username, password, callback) {
     var connection = mysql.createConnection({
-        host     : "---",
-        user     : "admin",
-        password : "---",
-        port     : "3306"
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
     });
 
     connection.connect(function(err) {
@@ -61,40 +143,22 @@ function createSession(username, expiration, callback) {
             console.error('Database connection failed: ' + err.stack);
             return;
         }
+        var salt = crypto.randomBytes(16).toString('hex'); 
+        var hash = crypto.pbkdf2Sync(password, salt,  
+            1000, 64, `sha512`).toString(`hex`); 
         connection.query('USE pointcloudDB;');
-        connection.query("select user_name expiration from table session_table where username = ?;", 
+        connection.query("insert into user_table (user_name, password_hash, salt) values (?, ?, ?);",
             [
-                username
+                username,
+                hash,
+                salt
             ], 
             function(error, result, fields) {
                 callback(error, result);
             });
-        connection.end()
-    }) 
-}
-
-function checkIfValidSession(username, callback) {
-    var connection = mysql.createConnection({
-        host     : "database-pointcloudviewer.cvohz8fwaj3u.eu-central-1.rds.amazonaws.com",
-        user     : "admin",
-        password : "F27RsZG5PECjYPNoWKuN",
-        port     : "3306"
+        connection.end();
     });
-
-    connection.connect(function(err) {
-        if(err) {
-            console.error('Database connection failed: ' + err.stack);
-            return;
-        }
-        connection.query('USE pointcloudDB;');
-        connection.query("select user_name expiration from table session_table where username = ?;", 
-            [
-                username
-            ], 
-            function(error, result, fields) {
-                callback(error, result);
-            });
-        connection.end()
-    }) 
 }
-module.exports = { getClouds, login, createSession, checkIfValidSession };
+
+// TODO write function to store new pointcloud
+module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser };
