@@ -2,14 +2,31 @@ body {
     background-color: #1c1c1d;
 }
 
-h1, p, textarea, a, button {
+h1, p, textarea, a, button, #login{
     font-family: 'Montserrat', sans-serif;
     color: white;
 }
 
+.text-white{
+  text-align: center;
+  margin-top: 10pt;
+  margin-bottom: 10pt;
+}
+
+th, td {
+  width: 50%;
+}
+.btn-group{
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  margin-bottom: 10pt;
+  margin-top: 10pt;
+}
 .point-cloud-button {
   margin: 10px;
   color: white;
+
 }
 
 #banner-msg {
@@ -23,6 +40,7 @@ h1, p, textarea, a, button {
     border: white 1px solid;
     border-radius: 0px;
 }
+
 
 #submit:hover {
   color: black;
@@ -85,9 +103,12 @@ h1, p, textarea, a, button {
     cursor: pointer;
 }
 
-#loading {
+#loading, #waiting, #finished{
   visibility: hidden;
+  text-align: left;
+  margin-left: 10px;
 }
+
 
 #canvas {
     padding-top: 10px;

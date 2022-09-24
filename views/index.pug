@@ -1,31 +1,29 @@
 extends base.pug
 block content
   .container
-    a(href='/upload') 
-      button.btn.btn-dark.point-cloud-button Upload Point Cloud
-    a(href='/login') 
-      button.btn.btn-dark.point-cloud-button Login
-    a(href='/fileconvert')
-      button.btn.btn-dark.convert-file-button Convert File
+    .btn-group(role='group' aria-label='Basic example')
+      a(href='/upload') 
+        button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
+      a(href='/login') 
+        button.btn.btn-primary.btn-dark.point-cloud-button Login
+      a(href='/fileconvert')
+        button.btn.btn-primary.btn-dark.point-cloud-button Convert File
     .row
       h2.text-white Public Clouds
       table.table.table-dark.table-bordered.table-hover
         tr
-          th Data
-          th Data 
+          th Point cloud name
           th Link to point cloud
         tr
         each cloud in clouds
           tr
             td #{cloud.cloud_name} 
-            td Some Data 
             td #{cloud.link}
     .row
       h2.text-white My Clouds
       table.table.table-dark.table-bordered.table-hover
         tr
-          th Data
-          th Data 
+          th Point cloud name
           th Link to point cloud
         tr
         each val in [1, 2, 3, 4, 5]
@@ -33,5 +31,4 @@ block content
           each val in [1, 2, 3, 4, 5]
             tr
               td Some Data
-              td Some Data 
               td Link

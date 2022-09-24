@@ -2,7 +2,10 @@ extends index.pug
 
 block content
   .container
-    form(action='upload', method='post', enctype='multipart/form-data')
-    input(type='file', name='fileToUpload')
     br
-    input(type='submit')
+    h2.text-white Upload Point Cloud (LAS-File)
+    br
+    form(action='upload', method='post', enctype='multipart/form-data')
+    input.form-control(type='file', name='fileToUpload')
+    br
+    button.btn.btn-dark.point-cloud-button(type="submit" style='margin-left:0pt;') Submit

@@ -20,5 +20,7 @@ html
     .container
       h2.text-white Convert the uploaded file to Potree format
       button.btn.btn-dark.point-cloud-button#convert(onclick='convert()') Convert File
+      p#waiting.fw-bold The file is converting, please be patient ...
+      p#finished.fw-bold Conversion completed successfully!
       h2.text-white#loading Loading 
     script(src="js/convert.js")
