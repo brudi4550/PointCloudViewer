@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const sessions = require('express-session');
-const dotenv = require('dotenv').config();
+const dotenv = require('dotenv').config({path:__dirname+'/.env'})
 const app = express();
 const busboy = require('connect-busboy');   // Middleware to handle the file upload https://github.com/mscdex/connect-busboy
 const path = require('path');               // Used for manipulation with path
@@ -11,13 +11,19 @@ const { exec, execFile } = require("child_process");
 const { stderr } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const { S3Client } = require("@aws-sdk/client-s3");
+const { S3Client, ListBucketsCommand } = require("@aws-sdk/client-s3");
+const s3client = new S3Client({
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+})
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.set('view engine', 'pug');
-app.use(express.static('public'));
+app.use(express.static(__dirname+'/public'));
 
 app.use(busboy({
   highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
@@ -28,7 +34,7 @@ app.use(cookieParser());
 
 const oneHour = 1000 * 60 * 60;
 app.use(sessions({
-  secret: 'willBeAddedLater',
+  secret: process.env.COOKIE_SECRET,
   saveUninitialized: true,
   cookie: { maxAge: oneHour },
   resave: false
@@ -76,8 +82,8 @@ app.get('/fileconvert', (req, res) => {
 
 app.post('/fileconvert', (req, res) => {
   console.log('Converting the file has started');
-  const path = '---';
-  exec(path + '/PotreeConverter.exe ' + 'PotreeConverter/point_cloud.las -o PotreeConverter/test', (error, stdout, stderr) => {
+  //only works on linux and probably mac
+  exec('~/PointCloudViewer/PotreeConverter/build/PotreeConverter ~/PointCloudViewer/las/point_cloud.las -o ~/PointCloudViewer/output', (error, stdout, stderr) => {
     if (error) {
       console.log(`error: ${error.message}`);
       return;
@@ -89,6 +95,7 @@ app.post('/fileconvert', (req, res) => {
     console.log(`stdout: ${stdout}`);
     res.redirect('back')
   });
+  //after finished fileconvert upload to s3
 })
 
 app.post('/login', (req, res) => {
@@ -174,21 +181,21 @@ app.post('/multipart-upload', upload.single("fileToUpload"), (request, response)
   // Wenn der Upload fertig ist (TODO: part = 2 muss dynamisch werden), dann werden alle Chunks zusammengeführt und im fertig-Folder abgelegt:
   if (request.body.part == 2) {
     let uploadPath = path.join(__dirname, "uploadFiles");
-    fs.readdir(uploadPath, function (err, filenames) { 
-      if (err) return console.error("ERROR in fs.readdir(...): ", err); 
+    fs.readdir(uploadPath, function (err, filenames) {
+      if (err) return console.error("ERROR in fs.readdir(...): ", err);
       filenames.forEach(function (filename) {
         fs.stat(uploadPath + "/" + filename, (err, stats) => {
-          if (err) return console.error("ERROR in fs.stat(...): ", err); 
+          if (err) return console.error("ERROR in fs.stat(...): ", err);
           if (stats.isFile()) {
-            fs.readFile(uploadPath + "/" + filename, function(err, data) { 
-              if (err) return console.error("ERROR in fs.readFile(...): ", err); 
+            fs.readFile(uploadPath + "/" + filename, function (err, data) {
+              if (err) return console.error("ERROR in fs.readFile(...): ", err);
               // appendFile erstellt Datei, wenn nicht vorhanden, unter dem gegebenen Pfad und Namen, und fügt Daten an,
               // Pfad (Folder) muss bereits vorhanden sein, sonst error
-              fs.appendFile('./uploadFiles/fertig/dia druck.jpg', data, function (err) { 
+              fs.appendFile('./uploadFiles/fertig/dia druck.jpg', data, function (err) {
                 if (err) return console.error("ERROR in fs.appendFile(...): ", err);
-              });  
+              });
             });
-          }; 
+          };
         });
       });
     });
