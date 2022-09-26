@@ -11,6 +11,7 @@ const { exec, execFile } = require("child_process");
 const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
+const crypto = require('crypto'); 
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
   credentials: {
@@ -45,18 +46,43 @@ fs.ensureDir(uploadPath); // Make sure that he upload path exits
 
 app.get('/', async (req, res) => {
   var session = req.session;
-  console.log(session.userid);
-  console.log(session);
-  // List is hardcoded now will be Get request to bucket later
-  function callback(result) {
-    let clouds = result
-    res.render('index', {
-      clouds: clouds,
-      title: 'PointCloudViewer',
-    })
+  var username = session.userid;
+  console.log(username);
+  // first chceck if there is valid session
+  function callbackCheckSession(error, result) {
+    if(error) {
+      console.log(error);
+    } else {
+      console.log(result);
+      if(result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
+        dbService.privateClouds(username, callbackReturnClouds);
+      } else {
+        dbService.publicClouds(callbackReturnClouds)
+      }
+    }
   }
-  dbService.getClouds(callback);
+
+  function callbackReturnClouds(error, result, validSession) {
+    if(error) {
+      console.log(error);
+    } else {
+      console.log(result)
+      res.render('index', {
+        clouds: result,
+        validSession: validSession,
+        title: 'PointCloudViewer',
+      })
+    }
+  }
+  if(username != null && username != undefined) {
+    dbService.checkSession(username, callbackCheckSession);
+  } else {
+    dbService.publicClouds(callbackReturnClouds);
+  }
+  
 })
+
+// TODO write new section to store a user
 
 app.get('/register', (req, res) => {
   res.render('register', {
@@ -66,12 +92,6 @@ app.get('/register', (req, res) => {
 
 app.post('register', (req, res) => {
 
-});
-
-app.get('/login', (req, res) => {
-  res.render('login', {
-    title: 'Login - PointCloudViewer'
-  })
 });
 
 app.get('/fileconvert', (req, res) => {
@@ -98,33 +118,84 @@ app.post('/fileconvert', (req, res) => {
   //after finished fileconvert upload to s3
 })
 
+app.get('/login', (req, res) => {
+  res.render('login', {
+    title: 'Login - PointCloudViewer'
+  })
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
+})
+
+
 app.post('/login', (req, res) => {
-  function callback(error, result) {
-    if (error) {
-      console.log('Error when tryed to log in');
+  var username = req.body.username;
+  var passwordHash = req.body.password;
+
+  function callbackSetNewSession(error, result) {
+    if(error){
+      console.log('Error when trying to set new session in database: ' + error);
       res.redirect;
     } else {
-      console.log(result);
-      if (result.length > 0) {
-        function callback(error, result) {
-          req.session.userid = req.body.username;
-          res.session = req.session;
-          res.status(200).redirect('/');
-        }
-        dbService.createSession(req.body.username, Date.now(), callback)
-      } else {
-        req.session.destroy();
-        res.status(401).redirect('/login');
-      }
+      console.log('New session was created');
+      req.session.userid=req.body.username;
+      res.session = req.session;
+      res.status(200).redirect('/');
     }
   }
-  dbService.login(req.body.username, req.body.password, callback);
+
+  function callbackLogin(valid) {
+    if(valid) {
+      dbService.setNewSession(username, Date.now(), callbackSetNewSession);
+    } else {
+      res.render('login', {
+        error: true,
+        message: 'Invalid data',
+        title: 'Login - PointCloudViewer'
+      })
+    }
+  }
+
+  dbService.login(username, passwordHash, callbackLogin);
 })
 
 app.get('/upload', (req, res) => {
   res.render('upload', {
     title: 'PointCloudViewer',
   })
+})
+
+app.get('/createNewUser', (req, res) => {
+  res.render('createNewUser', {
+    titel: 'Create new User - PointCloudViewer'
+  })
+})
+
+app.post('/createNewUser', (req, res) => {
+  console.log('creating new user');
+  function callback(error, result) {
+    console.log(error);
+    if(error) {
+      if(error.code == 'ER_DUP_ENTRY') {
+        var message = 'This username is already used choose another one'
+      } else {
+        var message = 'An error occured please try again'
+      }
+      res.render('createNewUser', {
+        error: true,
+        message: message,
+        titel: 'Create new User - PointCloudViewer'
+      })
+    } else {
+      res.render('successPage', {
+        message: 'A new user was created',
+        title: 'success - PointCloudViewer'
+      })
+    }
+  }
+  dbService.createNewUser(req.body.username, req.body.password, callback);
 })
 
 app.route('/upload').post(async (req, res, next) => {
