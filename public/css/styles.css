@@ -16,6 +16,14 @@ h1, p, textarea, a, button, #login{
 th, td {
   width: 50%;
 }
+
+#search {
+  margin-bottom: 10pt;
+  background-color: rgb(0,0,0);
+  background-color: rgba(0,0,0,0.4);
+  height: 40px;
+}
+
 .btn-group{
   display: flex;
   flex-direction: row;
@@ -23,6 +31,23 @@ th, td {
   margin-bottom: 10pt;
   margin-top: 10pt;
 }
+
+#mycloud {
+  margin-bottom: 0pt;
+}
+
+.scrollableTable {
+  height: 250pt;
+  overflow: auto;
+  --bs-gutter-x: 1.5rem;
+  --bs-gutter-y: 0;
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: calc(-1 * var(--bs-gutter-y));
+  margin-right: calc(-.5 * var(--bs-gutter-x));
+  margin-left: calc(-.5 * var(--bs-gutter-x));
+}
+
 .point-cloud-button {
   margin: 10px;
   color: white;

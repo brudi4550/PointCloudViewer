@@ -21,14 +21,36 @@ block content
             td #{cloud.link}
     .row
       h2.text-white My Clouds
-      table.table.table-dark.table-bordered.table-hover
+      input#search(type='text' onkeyup='searchName()' placeholder='Search for names..')
+      table.table.table-dark.table-bordered.table-hover#mycloud
         tr
           th Point cloud name
           th Link to point cloud
         tr
+    .scrollableTable
+      table.table.table-dark.table-bordered.table-hover#mycloud
         each val in [1, 2, 3, 4, 5]
           tr
           each val in [1, 2, 3, 4, 5]
             tr
               td Some Data
               td Link
+
+        script.
+          function searchName() {
+          var input, table, tr, td, i, txtValue;
+          input = document.getElementById("search").value.toUpperCase();
+          table = document.getElementById("mycloud");
+          tr = table.getElementsByTagName("tr");
+          for (i = 0; i < tr.length; i++) {
+          td = tr[i].getElementsByTagName("td")[0];
+          if (td) {
+          txtValue = td.textContent || td.innerText;
+          if (txtValue.toUpperCase().indexOf(input) > -1) {
+          tr[i].style.display = "";
+          } else {
+          tr[i].style.display = "none";
+          }
+          }
+          }
+          }
