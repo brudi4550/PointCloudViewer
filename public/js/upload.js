@@ -14,33 +14,9 @@ function handleForm(event) {
     let originalFile = document.getElementById("fileToUpload").files[0];
 
     // Anfrage für einen neuen Multipart-Upload senden
-    // let request = new Request("http://localhost:3000/multipart-upload", {
-    //     body: formData,
-    //     method: "PUT",
-    // });
-    // fetch(request)
-    //     .then((response) => response.json())
-    //     .then((data) => {
-    //         console.log("Antwort vom Server:", data);
-    //         uploadForm.reset();
-    // });
-
-    // Upload-Datei in Teile zerlegen und versenden
-    let chunks = Math.ceil(originalFile.size / CHUNKSIZE, CHUNKSIZE);
-    let chunk = 0;
-    while (chunk < chunks) {
-        // Zu neuer Seite leiten und Fortschritt des Uploads anzeigen?
-
-
-        console.log("=====================================================")
-        let offset = chunk * CHUNKSIZE;
-        console.log('current chunk..', chunk);
-        console.log('offset...', chunk * CHUNKSIZE);
-        console.log('file blob from offset...', offset)
-        console.log(originalFile.slice(offset, offset + CHUNKSIZE));
-
+                            console.log("Verarbeite Part " + (part + 1).toString() + " von " + von.toString());
         let formData = new FormData();
-        formData.append("checksumAlgorithm", "MD5");
+                            formData.append("part", part);
         formData.append("part", chunk + 1);
         formData.append("fileToUpload", originalFile.slice(offset, offset + CHUNKSIZE));
         let request = new Request("http://localhost:3000/multipart-upload", {
@@ -55,4 +31,6 @@ function handleForm(event) {
         });
         chunk++;
     }
+                    // console.log("Antwort vom Server:", data);
+                    // console.log(data.id);
 }  
