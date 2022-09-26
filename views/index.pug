@@ -10,7 +10,8 @@ block content
         button.btn.btn-primary.btn-dark.point-cloud-button Convert File
     .row
       h2.text-white Public Clouds
-      table.table.table-dark.table-bordered.table-hover
+      input#searchPC(type='text' onkeyup='searchNamePublicCloud()' placeholder='Search for names...')
+      table.table.table-dark.table-bordered.table-hover#publicCloud
         tr
           th Point cloud name
           th Link to point cloud
@@ -21,8 +22,8 @@ block content
             td #{cloud.link}
     .row
       h2.text-white My Clouds
-      input#search(type='text' onkeyup='searchName()' placeholder='Search for names..')
-      table.table.table-dark.table-bordered.table-hover#mycloud
+      input#searchMC(type='text' onkeyup='searchNameMyCloud()' placeholder='Search for names...')
+      table.table.table-dark.table-bordered.table-hover#mycloudhead
         tr
           th Point cloud name
           th Link to point cloud
@@ -37,10 +38,28 @@ block content
               td Link
 
         script.
-          function searchName() {
+          function searchNameMyCloud() {
           var input, table, tr, td, i, txtValue;
-          input = document.getElementById("search").value.toUpperCase();
+          input = document.getElementById("searchMC").value.toUpperCase();
           table = document.getElementById("mycloud");
+          tr = table.getElementsByTagName("tr");
+          for (i = 0; i < tr.length; i++) {
+          td = tr[i].getElementsByTagName("td")[0];
+          if (td) {
+          txtValue = td.textContent || td.innerText;
+          if (txtValue.toUpperCase().indexOf(input) > -1) {
+          tr[i].style.display = "";
+          } else {
+          tr[i].style.display = "none";
+          }
+          }
+          }
+          }
+        script.
+          function searchNamePublicCloud() {
+          var input, table, tr, td, i, txtValue;
+          input = document.getElementById("searchPC").value.toUpperCase();
+          table = document.getElementById("publicCloud");
           tr = table.getElementsByTagName("tr");
           for (i = 0; i < tr.length; i++) {
           td = tr[i].getElementsByTagName("td")[0];

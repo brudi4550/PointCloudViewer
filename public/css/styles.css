@@ -17,7 +17,7 @@ th, td {
   width: 50%;
 }
 
-#search {
+#searchPC, #searchMC {
   margin-bottom: 10pt;
   background-color: rgb(0,0,0);
   background-color: rgba(0,0,0,0.4);
@@ -32,12 +32,12 @@ th, td {
   margin-top: 10pt;
 }
 
-#mycloud {
+#mycloudhead {
   margin-bottom: 0pt;
 }
 
 .scrollableTable {
-  height: 250pt;
+  height: 300pt;
   overflow: auto;
   --bs-gutter-x: 1.5rem;
   --bs-gutter-y: 0;
