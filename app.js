@@ -1,18 +1,18 @@
 const express = require('express');
 const multer = require('multer');
 const sessions = require('express-session');
-const dotenv = require('dotenv').config({path:__dirname+'/.env'})
+const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const app = express();
 const busboy = require('connect-busboy');   // Middleware to handle the file upload https://github.com/mscdex/connect-busboy
 const path = require('path');               // Used for manipulation with path
 const fs = require('fs-extra');             // Classic fs
 const port = 3000;
 const { exec, execFile } = require("child_process");
-const { stderr } = require('process');
+const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const { S3Client, ListBucketsCommand } = require("@aws-sdk/client-s3");
-const s3client = new S3Client({
+const AWS = require('aws-sdk');
+const s3 = new AWS.S3({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.set('view engine', 'pug');
-app.use(express.static(__dirname+'/public'));
+app.use(express.static(__dirname + '/public'));
 
 app.use(busboy({
   highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
@@ -208,4 +208,71 @@ app.post('/multipart-upload', upload.single("fileToUpload"), (request, response)
 
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
+})
+
+app.patch('/convertFile/:fileId', (req, res) => {
+  const id = req.params['fileId'];
+  exec('./PotreeConverter/build/PotreeConverter ./las/pointcloud_' + id
+    + '.las -o ./potree_output/pointcloud_' + id + '&', (error, stdout, stderr) => {
+      if (error) {
+        console.log(`error: ${error.message}`);
+        return;
+      }
+      if (stderr) {
+        console.log(`stderr: ${stderr}`);
+        return;
+      }
+      console.log(`stdout: ${stdout}`);
+    });
+  res.send('converting has started')
+})
+
+app.patch('/sendToS3/:fileId', (req, res) => {
+  const id = req.params['fileId'];
+  const filePath = './potree_output/pointcloud_' + id + '/hierarchy.bin';
+  fs.readFile(filePath, (err, data) => {
+    if (err) throw err;
+    const params = {
+      Bucket: 'point-clouds',
+      Key: 'potree_pointclouds/test/hierarchy123.bin',
+      Body: JSON.stringify(data, null, 2)
+    };
+    s3.upload(params, function (s3Err, data) {
+      if (s3Err) throw s3Err
+      console.log(`File uploaded successfully at ${data.Location}`)
+    });
+  });
+  res.send('sent to s3');
+})
+
+app.patch('/generateHTMLPage/:pointcloudId', (req, res) => {
+  const id = req.params['pointcloudId'];
+  exec('cp ./resources/template.html ./potree_pages/pointcloud_' + id + '.html', (error, stdout, stderr) => {
+    if (error) {
+      console.log(`error: ${error.message}`);
+      return;
+    }
+    if (stderr) {
+      console.log(`stderr: ${stderr}`);
+      return;
+    }
+    console.log(`stdout: ${stdout}`);
+  });
+
+  fs.readFile('./resources/template.html', 'utf8', function (err, data) {
+    if (err) {
+      return console.log(err);
+    }
+    var result = data.replace(/POINTCLOUD_NAME/g, 'pointcloud' + id);
+    const params = {
+      Bucket: 'point-clouds',
+      Key: 'potree_pointclouds/test/pointcloud_test.html',
+      Body: JSON.stringify(result, null, 2)
+    };
+    s3.upload(params, function (s3Err, data) {
+      if (s3Err) throw s3Err
+      console.log(`File uploaded successfully at ${data.Location}`)
+    });
+  });
+  res.send('HTML page generated');
 })
