@@ -49,6 +49,7 @@ th, td {
   margin-left: calc(-.5 * var(--bs-gutter-x));
 }
 
+
 .point-cloud-button {
   margin: 10px;
   color: white;

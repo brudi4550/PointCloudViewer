@@ -2,6 +2,8 @@ extends base.pug
 block content
   .container
     form(method="POST" action="/login")
+      if error 
+        h3 #{message}
       br
       label#login(for = "username") Username:
       input.form-control(type = "text", name = "username")
@@ -10,4 +12,3 @@ block content
       input.form-control(type = "password", name = "password")
       br
       button.btn.btn-dark.point-cloud-button(type = "submit", name = "submit" style='margin-left:0pt;') Submit
-  script(src="js/login.js")
