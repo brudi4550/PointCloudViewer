@@ -13,6 +13,7 @@ const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
 const crypto = require('crypto'); 
 const AWS = require('aws-sdk');
+const { rmSync } = require('fs');
 const s3 = new AWS.S3({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -88,7 +89,7 @@ app.get('/register', (req, res) => {
   })
 });
 
-app.post('register', (req, res) => {
+app.post('/register', (req, res) => {
 
 });
 
@@ -126,7 +127,6 @@ app.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/');
 })
-
 
 app.post('/login', (req, res) => {
   var username = req.body.username;
@@ -181,12 +181,14 @@ app.post('/createNewUser', (req, res) => {
       } else {
         var message = 'An error occured please try again'
       }
+      res.status(400);
       res.render('createNewUser', {
         error: true,
         message: message,
         titel: 'Create new User - PointCloudViewer'
       })
     } else {
+      res.status(200);
       res.render('successPage', {
         message: 'A new user was created',
         title: 'success - PointCloudViewer'
@@ -227,6 +229,36 @@ app.route('/upload').post(async (req, res, next) => {
     })
   });
 });
+
+app.delete('/:pointcloudName', (req, res) => {
+  const pointcloudName = req.params['pointcloudName'];
+  // TODO get user form authentication
+  const username = 'Paul';
+  if(pointcloudName == undefined) {
+    res.status(400);
+    res.send('No pointcloudName could be found');
+  } else if(username == undefined) {
+    res.status(401);
+    res.send('No user was provided to perform the task')
+  } else {
+    function callback(error, result) {
+      if(error) {
+        console.log(error);
+        res.status(400)
+        res.send('Could not execute database query');
+      } else {
+        if(result.affectedRows >= 1) {
+          res.status(200);
+          res.send('The pointcloud could have been deleted successfully');
+        } else {
+          res.status(200);
+          res.send('The pointcloud was not found for this user');
+        }
+      }
+    }
+    dbService.deleteCloud(pointcloudName, username, callback);
+  }
+})
 
 /*============================================================================
   POST: /multipart-upload
@@ -420,19 +452,33 @@ app.patch('/generateHTMLPage/:pointcloudId', (req, res) => {
   res.send('HTML page generated');
 })
 
-app.patch('/storeCloud/:pointcloudId', (req, res) => {
-  const id = req.params['pointcloudId'];
-  var pointcloudName = req.body.pointcloudName;
-  var username = req.body.username;
-  var pointcloudLink = req.body.pointcloudLink;
-  if(id === undefined || pointcloudName === undefined || username === undefined || pointcloudLink === undefined) {
-    // invalid request
+
+app.patch('/storeCloud/:pointcloudName', (req, res) => {
+  const pointcloudName = req.params['pointcloudName'];
+  // TODO read username from authentication
+  var username = 'Paul';
+  // TODO read link from the query body
+  var pointcloudLink = 'testlink';
+  if(pointcloudName === undefined || username === undefined || pointcloudLink === undefined) {
+    res.status(400);
+    res.send('Name of the pointcloud, username, or the link has not been provided');
   } else {
     function callback(error, result) {
       if(error) {
-        // invalid request
+        if(error.code === 'ER_DUP_ENTRY'){
+          res.status(400);
+          res.send('The name of this pointcloud has already been stored by this user');
+        } else if(error.code === 'ER_NO_REFERENCED_ROW_2') {
+          res.status(400);
+          res.send('The user could not be found');
+        } else {
+          console.log(error.sqlMessage);
+          res.status(400);
+          res.send('The point cloud could not be stored to the database');
+        }
       } else {
-        // success
+        res.status(200);
+        res.send('The pointcould has been successfully stored in the database');
       }
     }
     dbService.createNewCloud(pointcloudName, pointcloudLink, username, callback);

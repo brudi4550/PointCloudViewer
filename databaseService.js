@@ -16,7 +16,7 @@ async function publicClouds(callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE public = TRUE;', function(error, result, fields) {
+        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE public = TRUE;', function(error, result) {
             callback(error, result, false)
         });
         connection.end()
@@ -41,7 +41,7 @@ async function privateClouds(username, callback) {
         [
             username
         ],
-        function(error, result, fields) {
+        function(error, result) {
             callback(error, result, true)
         });
         connection.end();
@@ -66,7 +66,7 @@ async function checkSession(username, callback) {
             [
                 username
             ], 
-            function(error, result, fields) {
+            function(error, result) {
                 callback(error, result)
             });
         connection.end();
@@ -91,7 +91,7 @@ async function login(username, password, callback) {
             [
                 username
             ], 
-            function(error, result, fields) {
+            function(error, result) {
                 if(error || !result ||result.length == 0) {
                     callback(false);
                 } else {
@@ -123,7 +123,7 @@ function setNewSession(username, expiration, callback) {
                 expiration,
                 expiration
             ], 
-            function(error, result, fields) {
+            function(error, result) {
                 callback(error, result);
             });
         connection.end();
@@ -153,7 +153,7 @@ function createNewUser(username, password, callback) {
                 hash,
                 salt
             ], 
-            function(error, result, fields) {
+            function(error, result) {
                 callback(error, result);
             });
         connection.end();
@@ -174,18 +174,43 @@ function createNewCloud(cloudName, link, username, callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query("insert into cloud_table (cloud_name, link, created_by, public) values (?, ?, ?, ?);",
+        connection.query("insert into cloud_table (cloud_name, link, created_by, public) values (?, ?, ?, false);",
             [
                 cloudName,
                 link,
                 username
             ], 
-            function(error, result, fields) {
+            function(error, result) {
                 callback(error, result);
             });
         connection.end();
     });
 }
 
-// TODO write function to store new pointcloud
-module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser, createNewCloud };
+function deleteCloud(cloudName, username, callback) {
+    var connection = mysql.createConnection({
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    });
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query("delete from cloud_table where created_by = ? and cloud_name = ?;",
+            [
+                username,
+                cloudName
+            ], 
+            function(error, result) {
+                callback(error, result);
+            });
+        connection.end();
+    });
+}
+
+module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser, createNewCloud, deleteCloud };
