@@ -27,7 +27,6 @@ block content
           if cloud.public
             tr
               td #{cloud.cloud_name} 
-              td Some Data 
               td #{cloud.link}
     .row
       h2.text-white My Clouds
@@ -38,14 +37,15 @@ block content
             th Point cloud name
             th Link to point cloud
           tr
-      .scrollableTable
-        table.table.table-dark.table-bordered.table-hover#mycloud
-          each cloud in clouds  
-              if !cloud.public
-                tr
-                  td #{cloud.cloud_name} 
-                  td Some Data 
-                  td #{cloud.link}
-       else
-        h3 Login to see your uploaded clouds
-     script(src="js/index.js")
+        .scrollableTable
+          table.table.table-dark.table-bordered.table-hover#mycloud
+            each cloud in clouds  
+                if !cloud.public
+                  tr
+                    td #{cloud.cloud_name} 
+                    td #{cloud.link}
+      else
+        .uploadedClouds
+          h3.text-white Login to see your uploaded clouds
+          img.gif(src='https://i.gifer.com/embedded/download/8EUB.gif')
+    script(src="js/index.js")
