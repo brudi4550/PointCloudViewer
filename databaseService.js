@@ -160,5 +160,32 @@ function createNewUser(username, password, callback) {
     });
 }
 
+function createNewCloud(cloudName, link, username, callback) {
+    var connection = mysql.createConnection({
+        host     : process.env.HOST,
+        user     : process.env.DATABASE_USER,
+        password : process.env.PASSWORD,
+        port     : process.env.PORT
+    });
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query("insert into cloud_table (cloud_name, link, created_by, public) values (?, ?, ?, ?);",
+            [
+                cloudName,
+                link,
+                username
+            ], 
+            function(error, result, fields) {
+                callback(error, result);
+            });
+        connection.end();
+    });
+}
+
 // TODO write function to store new pointcloud
-module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser };
+module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser, createNewCloud };

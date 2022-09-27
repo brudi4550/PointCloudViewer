@@ -53,7 +53,6 @@ app.get('/', async (req, res) => {
     if(error) {
       console.log(error);
     } else {
-      console.log(result);
       if(result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
         dbService.privateClouds(username, callbackReturnClouds);
       } else {
@@ -66,7 +65,6 @@ app.get('/', async (req, res) => {
     if(error) {
       console.log(error);
     } else {
-      console.log(result)
       res.render('index', {
         clouds: result,
         validSession: validSession,
@@ -420,4 +418,23 @@ app.patch('/generateHTMLPage/:pointcloudId', (req, res) => {
     });
   });
   res.send('HTML page generated');
+})
+
+app.patch('/storeCloud/:pointcloudId', (req, res) => {
+  const id = req.params['pointcloudId'];
+  var pointcloudName = req.body.pointcloudName;
+  var username = req.body.username;
+  var pointcloudLink = req.body.pointcloudLink;
+  if(id === undefined || pointcloudName === undefined || username === undefined || pointcloudLink === undefined) {
+    // invalid request
+  } else {
+    function callback(error, result) {
+      if(error) {
+        // invalid request
+      } else {
+        // success
+      }
+    }
+    dbService.createNewCloud(pointcloudName, pointcloudLink, username, callback);
+  }
 })
