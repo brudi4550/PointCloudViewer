@@ -2,7 +2,9 @@ extends index.pug
 
 block content
   .container
-    form(action='upload', method='post', enctype='multipart/form-data')
-    input(type='file', name='fileToUpload')
-    br
-    input(type='submit')
+    form(id='uploadForm')
+      input(type='file', name='fileToUpload' id='fileToUpload' required)
+      br
+      input(type='submit' id='beginUpload')
+
+  script(src="js/upload.js")

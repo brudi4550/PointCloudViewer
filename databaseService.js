@@ -2,13 +2,17 @@ const mysql = require('mysql');
 const dotenv = require('dotenv').config();
 const crypto = require('crypto'); 
 
-async function publicClouds(callback) {
-    var connection = mysql.createConnection({
+function createPointCloudDBConnection() {
+    return mysql.createConnection({
         host     : process.env.HOST,
         user     : process.env.DATABASE_USER,
         password : process.env.PASSWORD,
         port     : process.env.PORT
     });
+}
+
+async function publicClouds(callback) {
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -24,12 +28,7 @@ async function publicClouds(callback) {
 }
 
 async function privateClouds(username, callback) {
-    var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
-    });
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -49,12 +48,7 @@ async function privateClouds(username, callback) {
 }
 
 async function checkSession(username, callback) {
-    var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
-    });
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -74,12 +68,7 @@ async function checkSession(username, callback) {
 }
 
 async function login(username, password, callback) {
-    var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
-    });
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -104,12 +93,7 @@ async function login(username, password, callback) {
 }
 
 function setNewSession(username, expiration, callback) {
-    var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
-    });
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -131,12 +115,7 @@ function setNewSession(username, expiration, callback) {
 }
 
 function createNewUser(username, password, callback) {
-    var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
-    });
+    var connection = createPointCloudDBConnection();
 
     connection.connect(function(err) {
         if(err) {
@@ -160,5 +139,42 @@ function createNewUser(username, password, callback) {
     });
 }
 
+function getNextUploadIDByUser(username, password, callback) {
+    var connection = createPointCloudDBConnection();
+
+    connection.connect(function(err) {
+        if(err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        // insert new upload entry
+        connection.query("insert into upload_table (user_name) values (?);",
+        [
+            username
+        ], 
+        function(error, result) {
+            if (error) {
+                callback(error);
+                connection.end();
+                return;
+            }
+            // return the new upload entry
+            connection.query("SELECT MAX(upload_id) AS upload_id FROM upload_table WHERE (user_name = ?);",
+            [
+                username
+            ],
+            function(error, result, fields) {
+                if (error) {
+                    callback(error);
+                } else {
+                    callback(error, result[0]);
+                }
+                connection.end();
+            });
+        });
+    });
+}
+
 // TODO write function to store new pointcloud
-module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser };
+module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser, getNextUploadIDByUser };

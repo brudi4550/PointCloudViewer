@@ -239,30 +239,39 @@ app.post('/multipart-upload', (request, response) => {
   
   try {
     uploadFolderPath = path.join(__dirname, "uploadFiles");
-    uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
+    // uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
+    dbService.getNextUploadIDByUser(request.session.userid, "", function(err, id) {
+      if (err) {
+        return response
+          .status(500)
+          .send("generating upload id failed", uploadID)
+      } else {
+        uploadID = id;
+        // create directory for the planned upload 
+        fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
+        { recursive: true }, (err) => {
+          if (err) {
+            return response
+              .status(500)
+              .send("creating directory for the planned upload failed: ", err)
+          }
+        });
 
-    // create directory for the planned upload 
-    fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
-    { recursive: true }, (err) => {
-      if (err) return console.error("ERROR in fs.mkdir(...): ", err);
+        return response
+          .status(201)
+          .location("/multipart-upload/" + uploadID.toString())
+          .send({
+            id: uploadID,
+            chunkSizeInBit: 1024 * 1024 / 2,
+            uploadCompleted: false
+          })
+      }
     });
-    // fs.mkdir(path.join(uploadFolderPath, uploadID.toString(), "completeFiles"), 
-    // { recursive: true }, (err) => {
-    //   if (err) return console.error("ERROR in fs.mkdir(...): ", err);
-    // });
 
-    return response
-      .status(201)
-      .location("/multipart-upload/" + uploadID.toString())
-      .send({
-        id: uploadID,
-        chunkSizeInBit: 1024 * 1024 / 2,
-        uploadCompleted: false
-      })
   } catch (err) {
     return response
       .status(500)
-      .send(err)
+      .send("Unbekannter Fehler", err)
   }
 })
 
@@ -317,25 +326,21 @@ function applyUploadedChunksToFinalFile(id) {
   // FIXME: DELETE FINAL FILE IF EXISTS
   let uploadFolderPath = path.join(__dirname, "uploadFiles", id);
   // Lese sämtliche Daten im direkten Upload-Verzeichnis der jeweiligen Punktwolke aus
-  fs.readdir(uploadFolderPath, function (err, filenames) { 
-    if (err) return false; 
-    filenames.forEach(function (filename) {
-      // Wenn es sich um eine Datei handelt (nicht um einen Folder),
-      // dann handelt es sich um einen Chunk,
-      // und dieser Chunk wird in die Final-Datei angehängt.
-      fs.stat(uploadFolderPath + "/" + filename, (err, stats) => {
-        if (err) return false; 
-        if (stats.isFile()) {
-          fs.readFile(uploadFolderPath + "/" + filename, function(err, data) { 
-            if (err) return false; 
-            // appendFile erstellt Datei, wenn nicht vorhanden, unter dem gegebenen Pfad und Namen, und fügt Daten an,
-            // Pfad (Folder) muss bereits vorhanden sein, sonst error
-            fs.appendFile(uploadFolderPath + "/" + "Dateiname.jpg", data, function (err) { // FIXME: den urpsrünglichen Dateinamen einfügen
-              if (err) return false;
-            });  
-          });
-        }; 
-      });
+  fs.readdir(uploadFolderPath, function (err, filenames) {
+    if (err) return false;
+    filenames
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .forEach(function (filename) {
+        // Wenn es sich um eine Datei handelt (nicht um einen Folder),
+        // dann handelt es sich um einen Chunk,
+        // und dieser Chunk wird in die Final-Datei angehängt.
+        fs.stat(uploadFolderPath + "/" + filename, (err, stats) => {
+          if (err) return false; 
+          if (stats.isFile()) {
+            const data = fs.readFileSync(uploadFolderPath + "/" + filename);
+            fs.appendFileSync(uploadFolderPath + "/" + "Dateiname.jpg", data); // FIXME: den urpsrünglichen Dateinamen einfügen
+          }; 
+        });
     });
   });
   return true;
