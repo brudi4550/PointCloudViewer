@@ -2,7 +2,7 @@ body {
     background-color: #1c1c1d;
 }
 
-h1, p, textarea, a, button, #login{
+h1, h3, p, textarea, a, button, #login{
     font-family: 'Montserrat', sans-serif;
     color: white;
 }
