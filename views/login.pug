@@ -1,6 +1,7 @@
 extends base.pug
 block content
   .container
+    h2.text-white Login
     form(method="POST" action="/login")
       if error 
         h3 #{message}
@@ -12,3 +13,6 @@ block content
       input.form-control(type = "password", name = "password")
       br
       button.btn.btn-dark.point-cloud-button(type = "submit", name = "submit" style='margin-left:0pt;') Submit
+      br
+    a(href='/') 
+      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back

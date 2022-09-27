@@ -49,6 +49,17 @@ th, td {
   margin-left: calc(-.5 * var(--bs-gutter-x));
 }
 
+.uploadedClouds {
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+
+.gif {
+  height: 50%;
+  width: 50%;
+}
+
 
 .point-cloud-button {
   margin: 10px;
