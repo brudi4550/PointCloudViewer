@@ -11,7 +11,6 @@ const { exec, execFile } = require("child_process");
 const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const crypto = require('crypto'); 
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
   credentials: {
@@ -41,8 +40,19 @@ app.use(sessions({
   resave: false
 }));
 
-const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
-fs.ensureDir(uploadPath); // Make sure that he upload path exits
+const envFilePath = path.join(__dirname, '.env');
+if (!fs.existsSync(envFilePath)) {
+  console.log('.env file does not exist, application will not work correctly');
+}
+const uploadPath = path.join(__dirname, 'las/');
+fs.ensureDir(uploadPath);
+const potreeOutputFolder = path.join(__dirname, 'potree_output/')
+fs.ensureDir(potreeOutputFolder);
+const potreePageFolder = path.join(__dirname, 'potree_pages/');
+fs.ensureDir(potreePageFolder);
+
+require('./routes/api.js')(app);
+require('./routes/user.js')(app);
 
 app.get('/', async (req, res) => {
   var session = req.session;
@@ -50,20 +60,20 @@ app.get('/', async (req, res) => {
   console.log(username);
   // first chceck if there is valid session
   function callbackCheckSession(error, result) {
-    if(error) {
+    if (error) {
       console.log(error);
     } else {
       console.log(result);
-      if(result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
+      if (result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
         dbService.privateClouds(username, callbackReturnClouds);
       } else {
-        dbService.publicClouds(callbackReturnClouds)
+        dbService.publicClouds(callbackReturnClouds);
       }
     }
   }
 
   function callbackReturnClouds(error, result, validSession) {
-    if(error) {
+    if (error) {
       console.log(error);
     } else {
       console.log(result)
@@ -74,128 +84,18 @@ app.get('/', async (req, res) => {
       })
     }
   }
-  if(username != null && username != undefined) {
+  if (username != null && username != undefined) {
     dbService.checkSession(username, callbackCheckSession);
   } else {
     dbService.publicClouds(callbackReturnClouds);
   }
-  
-})
 
-// TODO write new section to store a user
-
-app.get('/register', (req, res) => {
-  res.render('register', {
-    title: 'Register - PointCloudViewer'
-  })
-});
-
-app.post('register', (req, res) => {
-
-});
-
-app.get('/fileconvert', (req, res) => {
-  res.render('fileconvert', {
-    title: 'PointCloudViewer',
-  })
-})
-
-app.post('/fileconvert', (req, res) => {
-  console.log('Converting the file has started');
-  //only works on linux and probably mac
-  exec('~/PointCloudViewer/PotreeConverter/build/PotreeConverter ~/PointCloudViewer/las/point_cloud.las -o ~/PointCloudViewer/output', (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.log(`stderr: ${stderr}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-    res.redirect('back')
-  });
-  //after finished fileconvert upload to s3
-})
-
-app.get('/login', (req, res) => {
-  res.render('login', {
-    title: 'Login - PointCloudViewer'
-  })
-});
-
-app.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect('/');
-})
-
-
-app.post('/login', (req, res) => {
-  var username = req.body.username;
-  var passwordHash = req.body.password;
-
-  function callbackSetNewSession(error, result) {
-    if(error){
-      console.log('Error when trying to set new session in database: ' + error);
-      res.redirect;
-    } else {
-      console.log('New session was created');
-      req.session.userid=req.body.username;
-      res.session = req.session;
-      res.status(200).redirect('/');
-    }
-  }
-
-  function callbackLogin(valid) {
-    if(valid) {
-      dbService.setNewSession(username, Date.now(), callbackSetNewSession);
-    } else {
-      res.render('login', {
-        error: true,
-        message: 'Invalid data',
-        title: 'Login - PointCloudViewer'
-      })
-    }
-  }
-
-  dbService.login(username, passwordHash, callbackLogin);
 })
 
 app.get('/upload', (req, res) => {
   res.render('upload', {
     title: 'PointCloudViewer',
   })
-})
-
-app.get('/createNewUser', (req, res) => {
-  res.render('createNewUser', {
-    titel: 'Create new User - PointCloudViewer'
-  })
-})
-
-app.post('/createNewUser', (req, res) => {
-  console.log('creating new user');
-  function callback(error, result) {
-    console.log(error);
-    if(error) {
-      if(error.code == 'ER_DUP_ENTRY') {
-        var message = 'This username is already used choose another one'
-      } else {
-        var message = 'An error occured please try again'
-      }
-      res.render('createNewUser', {
-        error: true,
-        message: message,
-        titel: 'Create new User - PointCloudViewer'
-      })
-    } else {
-      res.render('successPage', {
-        message: 'A new user was created',
-        title: 'success - PointCloudViewer'
-      })
-    }
-  }
-  dbService.createNewUser(req.body.username, req.body.password, callback);
 })
 
 app.route('/upload').post(async (req, res, next) => {
@@ -235,17 +135,17 @@ app.route('/upload').post(async (req, res, next) => {
 ============================================================================*/
 app.post('/multipart-upload', (request, response) => {
   let uploadFolderPath,
-      uploadID; 
-  
+    uploadID;
+
   try {
     uploadFolderPath = path.join(__dirname, "uploadFiles");
     uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
 
     // create directory for the planned upload 
-    fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
-    { recursive: true }, (err) => {
-      if (err) return console.error("ERROR in fs.mkdir(...): ", err);
-    });
+    fs.mkdir(path.join(uploadFolderPath, uploadID.toString()),
+      { recursive: true }, (err) => {
+        if (err) return console.error("ERROR in fs.mkdir(...): ", err);
+      });
     // fs.mkdir(path.join(uploadFolderPath, uploadID.toString(), "completeFiles"), 
     // { recursive: true }, (err) => {
     //   if (err) return console.error("ERROR in fs.mkdir(...): ", err);
@@ -280,7 +180,7 @@ const STORAGE = multer.diskStorage({
 });
 const UPLOAD = multer({ storage: STORAGE });
 
-app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => { 
+app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => {
   // uploaded binary data already saved at this point
   return response
     .status(200)
@@ -317,24 +217,24 @@ function applyUploadedChunksToFinalFile(id) {
   // FIXME: DELETE FINAL FILE IF EXISTS
   let uploadFolderPath = path.join(__dirname, "uploadFiles", id);
   // Lese sämtliche Daten im direkten Upload-Verzeichnis der jeweiligen Punktwolke aus
-  fs.readdir(uploadFolderPath, function (err, filenames) { 
-    if (err) return false; 
+  fs.readdir(uploadFolderPath, function (err, filenames) {
+    if (err) return false;
     filenames.forEach(function (filename) {
       // Wenn es sich um eine Datei handelt (nicht um einen Folder),
       // dann handelt es sich um einen Chunk,
       // und dieser Chunk wird in die Final-Datei angehängt.
       fs.stat(uploadFolderPath + "/" + filename, (err, stats) => {
-        if (err) return false; 
+        if (err) return false;
         if (stats.isFile()) {
-          fs.readFile(uploadFolderPath + "/" + filename, function(err, data) { 
-            if (err) return false; 
+          fs.readFile(uploadFolderPath + "/" + filename, function (err, data) {
+            if (err) return false;
             // appendFile erstellt Datei, wenn nicht vorhanden, unter dem gegebenen Pfad und Namen, und fügt Daten an,
             // Pfad (Folder) muss bereits vorhanden sein, sonst error
             fs.appendFile(uploadFolderPath + "/" + "Dateiname.jpg", data, function (err) { // FIXME: den urpsrünglichen Dateinamen einfügen
               if (err) return false;
-            });  
+            });
           });
-        }; 
+        };
       });
     });
   });
@@ -349,75 +249,6 @@ function uploadFileToAmazonS3(id) {
   return true;
 }
 
-//server start
-//============================================================================
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
-})
-
-app.patch('/convertFile/:fileId', (req, res) => {
-  const id = req.params['fileId'];
-  exec('./PotreeConverter/build/PotreeConverter ./las/pointcloud_' + id
-    + '.las -o ./potree_output/pointcloud_' + id + '&', (error, stdout, stderr) => {
-      if (error) {
-        console.log(`error: ${error.message}`);
-        return;
-      }
-      if (stderr) {
-        console.log(`stderr: ${stderr}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-    });
-  res.send('converting has started')
-})
-
-app.patch('/sendToS3/:fileId', (req, res) => {
-  const id = req.params['fileId'];
-  const filePath = './potree_output/pointcloud_' + id + '/hierarchy.bin';
-  fs.readFile(filePath, (err, data) => {
-    if (err) throw err;
-    const params = {
-      Bucket: 'point-clouds',
-      Key: 'potree_pointclouds/test/hierarchy123.bin',
-      Body: JSON.stringify(data, null, 2)
-    };
-    s3.upload(params, function (s3Err, data) {
-      if (s3Err) throw s3Err
-      console.log(`File uploaded successfully at ${data.Location}`)
-    });
-  });
-  res.send('sent to s3');
-})
-
-app.patch('/generateHTMLPage/:pointcloudId', (req, res) => {
-  const id = req.params['pointcloudId'];
-  exec('cp ./resources/template.html ./potree_pages/pointcloud_' + id + '.html', (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.log(`stderr: ${stderr}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-  });
-
-  fs.readFile('./resources/template.html', 'utf8', function (err, data) {
-    if (err) {
-      return console.log(err);
-    }
-    var result = data.replace(/POINTCLOUD_NAME/g, 'pointcloud' + id);
-    const params = {
-      Bucket: 'point-clouds',
-      Key: 'potree_pointclouds/test/pointcloud_test.html',
-      Body: JSON.stringify(result, null, 2)
-    };
-    s3.upload(params, function (s3Err, data) {
-      if (s3Err) throw s3Err
-      console.log(`File uploaded successfully at ${data.Location}`)
-    });
-  });
-  res.send('HTML page generated');
 })
