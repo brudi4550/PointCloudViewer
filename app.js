@@ -11,7 +11,6 @@ const { exec, execFile } = require("child_process");
 const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const crypto = require('crypto'); 
 const AWS = require('aws-sdk');
 const { rmSync } = require('fs');
 const s3 = new AWS.S3({
@@ -42,8 +41,19 @@ app.use(sessions({
   resave: false
 }));
 
-const uploadPath = path.join(__dirname, 'fu/'); // Register the upload path
-fs.ensureDir(uploadPath); // Make sure that he upload path exits
+const envFilePath = path.join(__dirname, '.env');
+if (!fs.existsSync(envFilePath)) {
+  console.log('.env file does not exist, application will not work correctly');
+}
+const uploadPath = path.join(__dirname, 'las/');
+fs.ensureDir(uploadPath);
+const potreeOutputFolder = path.join(__dirname, 'potree_output/')
+fs.ensureDir(potreeOutputFolder);
+const potreePageFolder = path.join(__dirname, 'potree_pages/');
+fs.ensureDir(potreePageFolder);
+
+require('./routes/api.js')(app);
+require('./routes/user.js')(app);
 
 app.get('/', async (req, res) => {
   var session = req.session;
@@ -51,19 +61,20 @@ app.get('/', async (req, res) => {
   console.log(username);
   // first chceck if there is valid session
   function callbackCheckSession(error, result) {
-    if(error) {
+    if (error) {
       console.log(error);
     } else {
-      if(result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
+      console.log(result);
+      if (result.length >= 1 && result[0].expiration < Date.now() + oneHour) {
         dbService.privateClouds(username, callbackReturnClouds);
       } else {
-        dbService.publicClouds(callbackReturnClouds)
+        dbService.publicClouds(callbackReturnClouds);
       }
     }
   }
 
   function callbackReturnClouds(error, result, validSession) {
-    if(error) {
+    if (error) {
       console.log(error);
     } else {
       res.render('index', {
@@ -73,7 +84,7 @@ app.get('/', async (req, res) => {
       })
     }
   }
-  if(username != null && username != undefined) {
+  if (username != null && username != undefined) {
     dbService.checkSession(username, callbackCheckSession);
   } else {
     dbService.publicClouds(callbackReturnClouds);
@@ -165,39 +176,6 @@ app.get('/upload', (req, res) => {
   })
 })
 
-app.get('/createNewUser', (req, res) => {
-  res.render('createNewUser', {
-    titel: 'Create new User - PointCloudViewer'
-  })
-})
-
-app.post('/createNewUser', (req, res) => {
-  console.log('creating new user');
-  function callback(error, result) {
-    console.log(error);
-    if(error) {
-      if(error.code == 'ER_DUP_ENTRY') {
-        var message = 'This username is already used choose another one'
-      } else {
-        var message = 'An error occured please try again'
-      }
-      res.status(400);
-      res.render('createNewUser', {
-        error: true,
-        message: message,
-        titel: 'Create new User - PointCloudViewer'
-      })
-    } else {
-      res.status(200);
-      res.render('successPage', {
-        message: 'A new user was created',
-        title: 'success - PointCloudViewer'
-      })
-    }
-  }
-  dbService.createNewUser(req.body.username, req.body.password, callback);
-})
-
 app.route('/upload').post(async (req, res, next) => {
   console.log('received post request');
   var awaitUpload = new Promise(function (resolve, reject) {
@@ -265,17 +243,17 @@ app.delete('/:pointcloudName', (req, res) => {
 ============================================================================*/
 app.post('/multipart-upload', (request, response) => {
   let uploadFolderPath,
-      uploadID; 
-  
+    uploadID;
+
   try {
     uploadFolderPath = path.join(__dirname, "uploadFiles");
     uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
 
     // create directory for the planned upload 
-    fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
-    { recursive: true }, (err) => {
-      if (err) return console.error("ERROR in fs.mkdir(...): ", err);
-    });
+    fs.mkdir(path.join(uploadFolderPath, uploadID.toString()),
+      { recursive: true }, (err) => {
+        if (err) return console.error("ERROR in fs.mkdir(...): ", err);
+      });
     // fs.mkdir(path.join(uploadFolderPath, uploadID.toString(), "completeFiles"), 
     // { recursive: true }, (err) => {
     //   if (err) return console.error("ERROR in fs.mkdir(...): ", err);
@@ -310,7 +288,7 @@ const STORAGE = multer.diskStorage({
 });
 const UPLOAD = multer({ storage: STORAGE });
 
-app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => { 
+app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => {
   // uploaded binary data already saved at this point
   return response
     .status(200)
@@ -347,24 +325,24 @@ function applyUploadedChunksToFinalFile(id) {
   // FIXME: DELETE FINAL FILE IF EXISTS
   let uploadFolderPath = path.join(__dirname, "uploadFiles", id);
   // Lese sämtliche Daten im direkten Upload-Verzeichnis der jeweiligen Punktwolke aus
-  fs.readdir(uploadFolderPath, function (err, filenames) { 
-    if (err) return false; 
+  fs.readdir(uploadFolderPath, function (err, filenames) {
+    if (err) return false;
     filenames.forEach(function (filename) {
       // Wenn es sich um eine Datei handelt (nicht um einen Folder),
       // dann handelt es sich um einen Chunk,
       // und dieser Chunk wird in die Final-Datei angehängt.
       fs.stat(uploadFolderPath + "/" + filename, (err, stats) => {
-        if (err) return false; 
+        if (err) return false;
         if (stats.isFile()) {
-          fs.readFile(uploadFolderPath + "/" + filename, function(err, data) { 
-            if (err) return false; 
+          fs.readFile(uploadFolderPath + "/" + filename, function (err, data) {
+            if (err) return false;
             // appendFile erstellt Datei, wenn nicht vorhanden, unter dem gegebenen Pfad und Namen, und fügt Daten an,
             // Pfad (Folder) muss bereits vorhanden sein, sonst error
             fs.appendFile(uploadFolderPath + "/" + "Dateiname.jpg", data, function (err) { // FIXME: den urpsrünglichen Dateinamen einfügen
               if (err) return false;
-            });  
+            });
           });
-        }; 
+        };
       });
     });
   });
@@ -379,8 +357,6 @@ function uploadFileToAmazonS3(id) {
   return true;
 }
 
-//server start
-//============================================================================
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
 })
