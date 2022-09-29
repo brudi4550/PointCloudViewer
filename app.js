@@ -12,7 +12,6 @@ const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
 const AWS = require('aws-sdk');
-const { rmSync } = require('fs');
 const s3 = new AWS.S3({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -77,6 +76,7 @@ app.get('/', async (req, res) => {
     if (error) {
       console.log(error);
     } else {
+      console.log(result)
       res.render('index', {
         clouds: result,
         validSession: validSession,
@@ -89,85 +89,7 @@ app.get('/', async (req, res) => {
   } else {
     dbService.publicClouds(callbackReturnClouds);
   }
-  
-})
 
-// TODO write new section to store a user
-
-app.get('/register', (req, res) => {
-  res.render('register', {
-    title: 'Register - PointCloudViewer'
-  })
-});
-
-app.post('/register', (req, res) => {
-
-});
-
-app.get('/fileconvert', (req, res) => {
-  res.render('fileconvert', {
-    title: 'PointCloudViewer',
-  })
-})
-
-app.post('/fileconvert', (req, res) => {
-  console.log('Converting the file has started');
-  //only works on linux and probably mac
-  exec('~/PointCloudViewer/PotreeConverter/build/PotreeConverter ~/PointCloudViewer/las/point_cloud.las -o ~/PointCloudViewer/output', (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.log(`stderr: ${stderr}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-    res.redirect('back')
-  });
-  //after finished fileconvert upload to s3
-})
-
-app.get('/login', (req, res) => {
-  res.render('login', {
-    title: 'Login - PointCloudViewer'
-  })
-});
-
-app.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect('/');
-})
-
-app.post('/login', (req, res) => {
-  var username = req.body.username;
-  var passwordHash = req.body.password;
-
-  function callbackSetNewSession(error, result) {
-    if(error){
-      console.log('Error when trying to set new session in database: ' + error);
-      res.redirect;
-    } else {
-      console.log('New session was created');
-      req.session.userid=req.body.username;
-      res.session = req.session;
-      res.status(200).redirect('/');
-    }
-  }
-
-  function callbackLogin(valid) {
-    if(valid) {
-      dbService.setNewSession(username, Date.now(), callbackSetNewSession);
-    } else {
-      res.render('login', {
-        error: true,
-        message: 'Invalid data',
-        title: 'Login - PointCloudViewer'
-      })
-    }
-  }
-
-  dbService.login(username, passwordHash, callbackLogin);
 })
 
 app.get('/upload', (req, res) => {
@@ -207,36 +129,6 @@ app.route('/upload').post(async (req, res, next) => {
     })
   });
 });
-
-app.delete('/:pointcloudName', (req, res) => {
-  const pointcloudName = req.params['pointcloudName'];
-  // TODO get user form authentication
-  const username = 'Paul';
-  if(pointcloudName == undefined) {
-    res.status(400);
-    res.send('No pointcloudName could be found');
-  } else if(username == undefined) {
-    res.status(401);
-    res.send('No user was provided to perform the task')
-  } else {
-    function callback(error, result) {
-      if(error) {
-        console.log(error);
-        res.status(400)
-        res.send('Could not execute database query');
-      } else {
-        if(result.affectedRows >= 1) {
-          res.status(200);
-          res.send('The pointcloud could have been deleted successfully');
-        } else {
-          res.status(200);
-          res.send('The pointcloud was not found for this user');
-        }
-      }
-    }
-    dbService.deleteCloud(pointcloudName, username, callback);
-  }
-})
 
 /*============================================================================
   POST: /multipart-upload
@@ -359,104 +251,4 @@ function uploadFileToAmazonS3(id) {
 
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
-})
-
-app.patch('/convertFile/:fileId', (req, res) => {
-  const id = req.params['fileId'];
-  exec('./PotreeConverter/build/PotreeConverter ./las/pointcloud_' + id
-    + '.las -o ./potree_output/pointcloud_' + id + '&', (error, stdout, stderr) => {
-      if (error) {
-        console.log(`error: ${error.message}`);
-        return;
-      }
-      if (stderr) {
-        console.log(`stderr: ${stderr}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-    });
-  res.send('converting has started')
-})
-
-app.patch('/sendToS3/:fileId', (req, res) => {
-  const id = req.params['fileId'];
-  const filePath = './potree_output/pointcloud_' + id + '/hierarchy.bin';
-  fs.readFile(filePath, (err, data) => {
-    if (err) throw err;
-    const params = {
-      Bucket: 'point-clouds',
-      Key: 'potree_pointclouds/test/hierarchy123.bin',
-      Body: JSON.stringify(data, null, 2)
-    };
-    s3.upload(params, function (s3Err, data) {
-      if (s3Err) throw s3Err
-      console.log(`File uploaded successfully at ${data.Location}`)
-    });
-  });
-  res.send('sent to s3');
-})
-
-app.patch('/generateHTMLPage/:pointcloudId', (req, res) => {
-  const id = req.params['pointcloudId'];
-  exec('cp ./resources/template.html ./potree_pages/pointcloud_' + id + '.html', (error, stdout, stderr) => {
-    if (error) {
-      console.log(`error: ${error.message}`);
-      return;
-    }
-    if (stderr) {
-      console.log(`stderr: ${stderr}`);
-      return;
-    }
-    console.log(`stdout: ${stdout}`);
-  });
-
-  fs.readFile('./resources/template.html', 'utf8', function (err, data) {
-    if (err) {
-      return console.log(err);
-    }
-    var result = data.replace(/POINTCLOUD_NAME/g, 'pointcloud' + id);
-    const params = {
-      Bucket: 'point-clouds',
-      Key: 'potree_pointclouds/test/pointcloud_test.html',
-      Body: JSON.stringify(result, null, 2)
-    };
-    s3.upload(params, function (s3Err, data) {
-      if (s3Err) throw s3Err
-      console.log(`File uploaded successfully at ${data.Location}`)
-    });
-  });
-  res.send('HTML page generated');
-})
-
-
-app.patch('/storeCloud/:pointcloudName', (req, res) => {
-  const pointcloudName = req.params['pointcloudName'];
-  // TODO read username from authentication
-  var username = 'Paul';
-  // TODO read link from the query body
-  var pointcloudLink = 'testlink';
-  if(pointcloudName === undefined || username === undefined || pointcloudLink === undefined) {
-    res.status(400);
-    res.send('Name of the pointcloud, username, or the link has not been provided');
-  } else {
-    function callback(error, result) {
-      if(error) {
-        if(error.code === 'ER_DUP_ENTRY'){
-          res.status(400);
-          res.send('The name of this pointcloud has already been stored by this user');
-        } else if(error.code === 'ER_NO_REFERENCED_ROW_2') {
-          res.status(400);
-          res.send('The user could not be found');
-        } else {
-          console.log(error.sqlMessage);
-          res.status(400);
-          res.send('The point cloud could not be stored to the database');
-        }
-      } else {
-        res.status(200);
-        res.send('The pointcould has been successfully stored in the database');
-      }
-    }
-    dbService.createNewCloud(pointcloudName, pointcloudLink, username, callback);
-  }
 })
