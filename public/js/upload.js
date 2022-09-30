@@ -6,6 +6,7 @@ function handleForm(event) {
     let uploadForm = event.target;
 
     let originalFile = document.getElementById("fileToUpload").files[0];
+    alert(originalFile.type);
 
     // send new multipart-upload-request
     let postRequest = new Request("http://localhost:3000/multipart-upload", {

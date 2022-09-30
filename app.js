@@ -300,7 +300,7 @@ app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, respon
   POST: /multipart-upload/:id/completeUpload
 ============================================================================*/
 app.post('/multipart-upload/:id/completeUpload', (request, response) => {
-  if (!applyUploadedChunksToFinalFile(request.params.id)) {
+  if (!mergeUploadedChunksIntoFinalFile(request.params.id)) {
     return response
       .status(500)
       .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
@@ -322,27 +322,29 @@ app.post('/multipart-upload/:id/completeUpload', (request, response) => {
     .json("Multipart-Upload erfolgreich zusammengesetzt, konvertiert und auf Amazon S3 geladen.");
 });
 
-function applyUploadedChunksToFinalFile(id) {
-  // FIXME: DELETE FINAL FILE IF EXISTS
-  let uploadFolderPath = path.join(__dirname, "uploadFiles", id);
-  // Lese sämtliche Daten im direkten Upload-Verzeichnis der jeweiligen Punktwolke aus
-  fs.readdir(uploadFolderPath, function (err, filenames) {
-    if (err) return false;
-    filenames
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      .forEach(function (filename) {
-        // Wenn es sich um eine Datei handelt (nicht um einen Folder),
-        // dann handelt es sich um einen Chunk,
-        // und dieser Chunk wird in die Final-Datei angehängt.
-        fs.stat(uploadFolderPath + "/" + filename, (err, stats) => {
-          if (err) return false; 
-          if (stats.isFile()) {
-            const data = fs.readFileSync(uploadFolderPath + "/" + filename);
-            fs.appendFileSync(uploadFolderPath + "/" + "Dateiname.jpg", data); // FIXME: den urpsrünglichen Dateinamen einfügen
-          }; 
-        });
+function mergeUploadedChunksIntoFinalFile(id) {
+  try {
+    const mergedFilename = "Dateiname.jpg"; // FIXME: read from database
+    const uploadFolderPath = path.join(__dirname, "uploadFiles", id); // FIXME: different directory ... maybe username/{uploadId}
+    // delete merged file if exists (necessary if an error has occurred previously)
+    if (fs.existsSync(path.join(uploadFolderPath, mergedFilename))) {
+      fs.unlinkSync(path.join(uploadFolderPath, mergedFilename));
+    }
+    // read each chunk and merge it into final file
+    fs.readdir(uploadFolderPath, function (err, filenames) {
+      if (err) return false;
+      filenames // chunks are numbered, but stored without leading zeros; therefore they must first be sorted
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .forEach(function (chunkFilename) {
+          if (fs.statSync(path.join(uploadFolderPath, chunkFilename)).isFile()) {
+            const data = fs.readFileSync(path.join(uploadFolderPath, chunkFilename));
+            fs.appendFileSync(path.join(uploadFolderPath, mergedFilename), data);
+          };
+      });
     });
-  });
+  } catch (error) {
+    return false;  
+  }
   return true;
 }
 
