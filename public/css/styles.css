@@ -14,7 +14,13 @@ h1, h3, p, textarea, a, button, #login{
 }
 
 th, td {
-  width: 50%;
+  width: 45%;
+  vertical-align: middle;
+}
+
+#deleteB {
+  width: 10%;
+  text-align: center;
 }
 
 #searchPC, #searchMC {
