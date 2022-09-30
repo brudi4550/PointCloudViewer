@@ -1,13 +1,17 @@
 extends base.pug
 block content
   .container
+    h2.text-white Create new user
     form(method="POST" action="/createNewUser")
       if error 
         h3 #{message}
-      label(for = "username") Username:
-      input(type = "text", name = "username")
+      label#login(for = "username") Username:
+      input.form-control(type = "text", name = "username")
       br
-      label(for = "password") Password:
-      input(type = "password", name = "password")
+      label#login(for = "password") Password:
+      input.form-control(type = "password", name = "password")
       br
-      input(type = "submit", name = "submit", value = "submit")
+      button.btn.btn-dark.point-cloud-button(type = "submit", name = "submit" style='margin-left:0pt;') Submit
+      br
+    a(href='/') 
+      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back

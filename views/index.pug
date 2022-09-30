@@ -1,48 +1,57 @@
 extends base.pug
 block content
   .container
-    a(href='/upload') 
-      button.btn.btn-dark.point-cloud-button Upload Point Cloud
-    a(href='/login') 
-      button.btn.btn-dark.point-cloud-button Login
-    if validSession
-      a(href='/logout') 
-        button.btn.btn-dark.point-cloud-button Logout
-    if !validSession
-      a(href='/createNewUser') 
-        button.btn.btn-dark.point-cloud-button Create new User
-    a(href='/fileconvert')
-      button.btn.btn-dark.convert-file-button Convert File
+    .btn-group(role='group' aria-label='Basic example')
+      a(href='/upload') 
+        button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
+      a(href='/login') 
+        button.btn.btn-primary.btn-dark.point-cloud-button Login
+      if validSession
+        a(href='/logout') 
+          button.btn.btn-primary.btn.btn-dark.point-cloud-button Logout
+      if !validSession
+        a(href='/createNewUser') 
+          button.btn.btn-primary.btn.btn-dark.point-cloud-button Create new User
+      a(href='/fileconvert')
+        button.btn.btn-primary.btn-dark.point-cloud-button Convert File
     .row
       h2.text-white Public Clouds
-      table.table.table-dark.table-bordered.table-hover
+      input#searchPC(type='text' onkeyup='searchNamePublicCloud()' placeholder='Search for names...')
+      table.table.table-dark.table-bordered.table-hover#publicCloud
         tr
-          th Data
-          th Data 
+          th Point cloud name
           th Link to point cloud
+          th#deleteB  Delete
         tr
         <!--write two loops one to picture only the clouds with public label and one for the other one-->
         each cloud in clouds
           if cloud.public
             tr
               td #{cloud.cloud_name} 
-              td Some Data 
               td #{cloud.link}
+              td#deleteB 
+                button.btn.btn-primary.btn-dark.point-cloud-button Delete
     .row
       h2.text-white My Clouds
       if validSession
-        table.table.table-dark.table-bordered.table-hover
+        input#searchMC(type='text' onkeyup='searchNameMyCloud()' placeholder='Search for names...')
+        table.table.table-dark.table-bordered.table-hover#mycloudhead
           tr
-            th Data
-            th Data 
+            th Point cloud name
             th Link to point cloud
+            th#deleteB  Delete
           tr
-          each cloud in clouds  
-            if !cloud.public
-              tr
-                  td #{cloud.cloud_name} 
-                  td Some Data 
-                  td #{cloud.link}
-      else 
-        h3 Login to see your uploaded clouds
-
+        .scrollableTable
+          table.table.table-dark.table-bordered.table-hover#mycloud
+            each cloud in clouds  
+                if !cloud.public
+                  tr
+                    td #{cloud.cloud_name} 
+                    td #{cloud.link}
+                    td#deleteB 
+                      button.btn.btn-primary.btn-dark.point-cloud-button Delete
+      else
+        .uploadedClouds
+          h3.text-white Login to see your uploaded clouds
+          img.gif(src='https://i.gifer.com/embedded/download/8EUB.gif')
+    script(src="js/index.js")
