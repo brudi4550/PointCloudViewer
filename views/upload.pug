@@ -2,13 +2,9 @@ extends index.pug
 
 block content
   .container
-    br
-    h2.text-white Upload Point Cloud (LAS-File)
-    br
-    form(action='upload', method='post', enctype='multipart/form-data')
-    input.form-control(type='file', name='fileToUpload')
-    br
-    button.btn.btn-dark.point-cloud-button(type="submit" style='margin-left:0pt;') Submit
-    br
-    a(href='/') 
-      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back
+    form(id='uploadForm')
+      input(type='file', name='fileToUpload' id='fileToUpload' required)
+      br
+      input(type='submit' id='beginUpload')
+
+  script(src="js/upload.js")
