@@ -1,7 +1,6 @@
 const mysql = require('mysql');
 const dotenv = require('dotenv').config();
 const crypto = require('crypto');
-const { query } = require('express');
 const util = require( 'util' );
 
 const STANDARD_SCHEMA = "pointcloudDB2";
@@ -50,7 +49,6 @@ function makeDb() {
             return util.promisify(connection.rollback)
                 .call(connection);
         }
-<<<<<<< HEAD
     };
 }
 
@@ -88,11 +86,7 @@ async function getPointcloudEntryByCloudnameAndUsername(cloudname, username, cal
             } else {
                 throw new Error("pointcloud not found with name = " + cloudname);
             }
-=======
-        connection.query('USE pointcloudDB;');
-        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE public = TRUE;', function(error, result) {
             callback(error, result, false)
->>>>>>> ee7602b6b02144f8b152209a646d044be7d99674
         });
     } catch (err) {
         console.error(err);
@@ -128,9 +122,7 @@ async function createPointCloudEntry(user, cloud_name, public, upload_status, ca
 async function publicClouds(callback) {
     try {
         const db = makeDb();
-        let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
-                    'WHERE public = TRUE AND id NOT IN ' +
-                    '(SELECT cloud_id FROM upload_information_table WHERE upload_status != ?)';
+        let query = 'SELECT cloud_name, link, public FROM cloud_table WHERE public = TRUE;'
         await withTransaction(db, async () => {
             const result = await db.query(query, "COMPLETED");
             callback(null, result, false)
@@ -142,52 +134,19 @@ async function publicClouds(callback) {
 }
 
 async function privateClouds(username, callback) {
-<<<<<<< HEAD
-    try {
-        const db = makeDb();
-        let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
-                    'WHERE ((public = FALSE and created_by = ?) or public = TRUE) AND id NOT IN ' +
-                    '(SELECT cloud_id FROM upload_information_table WHERE upload_status != ?)';
-        await withTransaction(db, async () => {
-            const result = await db.query(query, [username, "COMPLETED"]);
-            callback(null, result, true)
-        });
-    } catch (err) {
-        console.error(err);
-        callback(err);
-    }
-}
-
-async function checkSession(username, callback) {
-    try {
-        const db = makeDb();
-        await withTransaction(db, async () => {
-            const result = await db.query("SELECT expiration from session_table where user_name = ?;", username);
-            callback(null, result)
-        });
-    } catch (err) {
-        console.error(err);
-        callback(err);
-    }
-=======
-    var connection = createPointCloudDBConnection();
-
-    connection.connect(function (err) {
-        if (err) {
-            console.error('Database connection failed: ' + err.stack);
-            return;
+        try {
+            const db = makeDb();
+            let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
+                        'WHERE ((public = FALSE and created_by = ?) or public = TRUE)';
+            await withTransaction(db, async () => {
+                const result = await db.query(query, [username, "COMPLETED"]);
+                callback(null, result, true)
+            });
+        } catch (err) {
+            console.error(err);
+            callback(err);
         }
-        connection.query('USE pointcloudDB;');
-        connection.query('SELECT cloud_name, link, public FROM cloud_table WHERE (public = FALSE and created_by = ?) or public = true;',
-        [
-            username
-        ],
-        function(error, result) {
-            callback(error, result, true)
-        });
-        connection.end();
-    });
-}
+    }
 
 async function checkSession(username, callback) {
     var connection = createPointCloudDBConnection();
@@ -207,7 +166,6 @@ async function checkSession(username, callback) {
             });
         connection.end();
     });
->>>>>>> ee7602b6b02144f8b152209a646d044be7d99674
 }
 
 async function login(username, password, callback) {
