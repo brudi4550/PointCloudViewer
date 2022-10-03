@@ -99,7 +99,7 @@ module.exports = function (app) {
     })
 
 
-    app.patch('/storeCloud/:pointcloudId', (req, res) => {
+    app.post('/storeCloud/:pointcloudName', (req, res) => {
         function callback() {
             const user = getAuthInfo(req)[0];
             const pointcloudName = req.param['pointcloudName'];
@@ -162,9 +162,9 @@ module.exports = function (app) {
     })
 
     app.delete('/:pointcloudName', (req, res) => {
+        console.log('delete request : ' + req.params['pointcloudName']);
         function callback() {
             const pointcloudName = req.params['pointcloudName'];
-            // TODO get user form authentication
             const user = getAuthInfo(req)[0];
             if(pointcloudName == undefined) {
                 res.status(400);
