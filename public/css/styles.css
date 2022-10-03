@@ -162,6 +162,31 @@ th, td {
     height: 100%;
 }
 
+#progressBarHolder {
+  /* begrenzen des Fortschrittbalkens auf 300px breite */
+  width: 300px;
+  background-color: #fff;
+  border-radius: 5px;
+}
+
+#progressBar {
+  /* Farbverlauf als Hintergrundbild */
+  background-image: linear-gradient(#fff, #06d6a9);
+  /* Hintergrund soll nicht über das element wiederholt werden */
+  background-repeat:no-repeat;
+  /* in der Breite zunächst 0% gefüllt, in der Höhe 100% */
+  background-size: 0% 100%;
+  border: 1px solid #06d6a9;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+#progressInformation {
+  color: rgba(0,0,0,0.87);
+  font-size: 20px;
+  text-align: center;
+}
+
 .fade-in-image {
     animation: fadeIn 5s;
     -webkit-animation: fadeIn 5s;
