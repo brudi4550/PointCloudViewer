@@ -4,7 +4,8 @@
   "description": "Viewing point clouds in the browser made easy.",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
   },
   "keywords": [
     "LAS",
@@ -27,6 +28,10 @@
     "helmet": "^5.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql": "^2.18.1",
-    "pug": "^3.0.2"
+    "pug": "^3.0.2",
+    "util": "^0.12.4"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
   }
 }

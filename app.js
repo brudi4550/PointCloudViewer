@@ -18,6 +18,14 @@ const s3 = new AWS.S3({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
   }
 })
+const UPLOAD_STATUS_ENUM = {
+  UNDEFINED: 'UNDEFINED',
+  INITIALIZED: 'INITIALIZED',
+  COMPLETE_ORDER_SENT: 'COMPLETE_ORDER_SENT',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  ON_UPDATE: 'ON_UPDATE'
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -131,44 +139,56 @@ app.route('/upload').post(async (req, res, next) => {
 });
 
 /*============================================================================
-  POST: /multipart-upload
+  GET: /pointcloud/:cloud_name
 ============================================================================*/
-app.post('/multipart-upload', (request, response) => {
-  let uploadFolderPath,
-    uploadID;
+app.get('/pointcloud/:cloud_name', (request, response) => {
+  dbService.getPointcloudEntryByCloudnameAndUsername(request.params.cloud_name, request.session.userid, function(err, result) {
+    if (err) {
+      return response
+        .status(500)
+        .send(err)
+    }
+    if (result) {
+      return response
+        .status(200)
+        .send(result)
+    }
+  })
+});
 
+/*============================================================================
+  PUT: /multipart-upload/start-upload
+============================================================================*/
+app.put('/multipart-upload/start-upload', (request, response) => {
+  const UPLOAD_FOLDER_PATH = path.join(__dirname, "las");
+  let userID,
+      cloudID;
   try {
-    uploadFolderPath = path.join(__dirname, "uploadFiles");
-    // uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
-    dbService.getNextUploadIDByUser(request.session.userid, "", function(err, id) {
+    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, 0, UPLOAD_STATUS_ENUM.INITIALIZED, function(err, id) {
       if (err) {
         return response
           .status(500)
-          .send("generating upload id failed", uploadID)
-      } else {
-        uploadID = id;
-        // create directory for the planned upload 
-        fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
-        { recursive: true }, (err) => {
-          if (err) {
+          .json("creating pointcloud entry failed", err)
+        } else { 
+          cloudID = id; 
+          dbService.getUserIdByName(request.session.userid, function(err, id) {
+            if (err) {
+              return response.status(500).send({error: err.message})
+            }
+            userID = id;
+            // create directory for the planned upload
+            fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, userID.toString(), cloudID.insertId.toString()));
             return response
-              .status(500)
-              .send("creating directory for the planned upload failed: ", err)
-          }
-        });
-
-        return response
-          .status(201)
-          .location("/multipart-upload/" + uploadID.toString())
-          .send({
-            id: uploadID,
-            chunkSizeInBit: 1024 * 1024 / 2,
-            uploadCompleted: false
-          })
+              .status(201)
+              .location("/multipart-upload/" + cloudID.toString())
+              .send({
+                // id: uploadID,
+                chunkSizeInBit: 1024 * 1024 / 2,
+                uploadCompleted: false
+              })
+            });
       }
     });
-
-
   } catch (err) {
     return response
       .status(500)
@@ -182,7 +202,7 @@ app.post('/multipart-upload', (request, response) => {
 // storage controls the server-side disk-storage of the incoming files
 const STORAGE = multer.diskStorage({
   destination: function (request, file, callback) {
-    callback(null, "./uploadFiles/" + request.body.id);
+    callback(null, "./las/" + request.body.id);
   },
   filename: function (request, file, callback) {
     callback(null, file.originalname + request.body.part);
