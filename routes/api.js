@@ -98,6 +98,33 @@ module.exports = function (app) {
         authenticate(req, callback);
     })
 
+
+    app.post('/storeCloud/:pointcloudName', (req, res) => {
+        function callback() {
+            const user = getAuthInfo(req)[0];
+            const pointcloudName = req.param['pointcloudName'];
+            // TODO check how to get the link 
+            const pointcloudLink = req.body.pointcloudLink;
+            if(user === undefined || pointcloudName === undefined ||pointcloudLink === undefined) {
+                res.status(400);
+                res.send('user, pointcloud or link could not be found');
+            } else {
+                function databaseCallback(error, result) {
+                    if(error) {
+                        res.status(400);
+                        res.send('the cloud could not be stored in the database');
+                    } else {
+                        res.status(200);
+                        res.send('The pointcloud has been stored in the database');
+                    }
+                }
+                dbService.createNewCloud(pointcloudName, pointcloudLink, user, databaseCallback);
+            }
+
+        }
+        authenticate(req,callback);
+    })
+
     app.patch('/generateHTMLPage/:pointcloudName', (req, res) => {
         function callback() {
             const pointcloudName = req.params['pointcloudName'];
@@ -130,6 +157,39 @@ module.exports = function (app) {
                 });
             });
             res.send('HTML page generated');
+        }
+        authenticate(req, callback);
+    })
+
+    app.delete('/:pointcloudName', (req, res) => {
+        console.log('delete request : ' + req.params['pointcloudName']);
+        function callback() {
+            const pointcloudName = req.params['pointcloudName'];
+            const user = getAuthInfo(req)[0];
+            if(pointcloudName == undefined) {
+                res.status(400);
+                res.send('No pointcloudName could be found');
+            } else if(user == undefined) {
+                res.status(401);
+                res.send('No user was provided to perform the task')
+            } else {
+                function databaseCallback(error, result) {
+                    if(error) {
+                        console.log(error);
+                        res.status(400)
+                        res.send('Could not execute database query');
+                    } else {
+                        if(result.affectedRows >= 1) {
+                            res.status(200);
+                            res.send('The pointcloud could have been deleted successfully');
+                        } else {
+                            res.status(200);
+                            res.send('The pointcloud was not found for this user');
+                        }
+                    }
+                }
+                dbService.deleteCloud(pointcloudName, user, databaseCallback);
+            }
         }
         authenticate(req, callback);
     })
