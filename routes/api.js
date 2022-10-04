@@ -1,5 +1,6 @@
 const dbService = require('../databaseService');
 const exec = require("child_process");
+const os = require('os');
 
 module.exports = function (app) {
 
@@ -63,6 +64,7 @@ module.exports = function (app) {
 
     app.patch('/convertFile/:pointcloudName', (req, res) => {
         function callback() {
+            console.log(os.type());
             const user = getAuthInfo(req)[0];
             const pointcloudName = req.params['pointcloudName'];
             exec('./PotreeConverter/build/PotreeConverter ./las/' + user + '/' + pointcloudName

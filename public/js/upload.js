@@ -145,7 +145,7 @@ function handleForm(event) {
                         .then(() => {
                             console.log("Beginne mit Abschluss des Uploads");
                             let requestForCompleting = new Request("http://localhost:3000/multipart-upload/complete-upload", {
-                                body: new URLSearchParams("id=" + CLOUD_ID),
+                                body: new URLSearchParams("id=" + CLOUD_ID + "&" + "cloud_name=" + inputCloudname),
                                 method: "POST",
                             });
                             fetch(requestForCompleting)
