@@ -35,7 +35,7 @@ module.exports = function (app) {
             }
         }
 
-        function callbackLogin(valid) {
+        function callbackLogin(error, valid) {
             if (valid) {
                 dbService.setNewSession(username, Date.now(), callbackSetNewSession);
             } else {
@@ -47,7 +47,7 @@ module.exports = function (app) {
             }
         }
 
-        dbService.login(username, passwordHash, callbackLogin);
+        dbService.authenticateUser(username, passwordHash, callbackLogin);
     })
 
     // TODO check for special chars

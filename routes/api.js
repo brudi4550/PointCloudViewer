@@ -75,7 +75,7 @@ module.exports = function (app) {
             const password = authInfo[1];
             const pointcloudName = req.params['pointcloudName'];
 
-            function callbackOnAuthenticationResult(valid) {
+            function callbackOnAuthenticationResult(error, valid) {
                 if (pointcloudName === undefined) {
                     callback(valid);
                     return;
@@ -248,7 +248,7 @@ module.exports = function (app) {
                     } else {
                         if (result.affectedRows >= 1) {
                             res.status(200);
-                            res.send('The pointcloud could have been deleted successfully');
+                            res.send('The pointcloud has been deleted successfully');
                         } else {
                             res.status(200);
                             res.send('The pointcloud was not found for this user');
