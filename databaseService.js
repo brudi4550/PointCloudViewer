@@ -199,8 +199,8 @@ async function createNewUser(username, password, callback) {
 
 async function createNewCloud(cloudName, link, username, callback) {
     try {
-        if (username === undefined || password === undefined) {
-            throw err("The username or the cloudname are not defined");
+        if (username === undefined || cloudName === undefined || link === undefined) {
+            throw err("The username, link or cloudname are not defined");
         }
         const db = makeDb();
         await withTransaction(db, async () => {
@@ -235,37 +235,27 @@ async function authenticateUser(username, password, callback) {
 }
 
 //function assumes user has already been authenticated
-function authenticateAction(username, pointcloudName, callback) {
-    var connection = mysql.createConnection({
-        host: process.env.HOST,
-        user: process.env.DATABASE_USER,
-        password: process.env.PASSWORD,
-        port: process.env.PORT
-    });
-
-    connection.connect(function (err) {
-        if (err) {
-            console.error('Database connection failed: ' + err.stack);
-            return;
+async function authenticateAction(username, cloudName, callback) {
+    try {
+        if (username === undefined || cloudName === undefined) {
+            throw err("The username or the cloudname are not defined");
         }
-        connection.query('USE pointcloudDB;');
-        connection.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON ' +
+        const db = makeDb();
+        await withTransaction(db, async () => {
+            const result = await db.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON ' +
             'cloud_table.created_by = user_table.user_name ' +
             'WHERE user_table.user_name = ? ' +
-            'AND cloud_table.cloud_name = ?;',
-            [
-                username,
-                pointcloudName
-            ],
-            function (error, result, fields) {
-                if (error || !result || result.length == 0) {
-                    callback(false);
-                } else {
-                    callback(true);
-                }
-            });
-        connection.end()
-    });
+            'AND cloud_table.cloud_name = ?;', [username, cloudName]);
+            if (error || !result || result.length == 0) {
+                callback(false);
+            } else {
+                callback(true);
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        callback(false);
+    }
 }
 
 async function deleteCloud(cloudName, username, callback) {
