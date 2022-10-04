@@ -2,9 +2,14 @@ extends index.pug
 
 block content
   .container
+    br
+    h2.text-white Uploud Point Cloud
+    br
     form(id='uploadForm')
-      input(type='file', name='fileToUpload' id='fileToUpload' required)
+      input.form-control(type='file', name='fileToUpload' id='fileToUpload' required)
       br
-      input(type='submit' id='beginUpload')
-
+      button.btn.btn-dark.point-cloud-button(type='submit' id='beginUpload' onclick='convert()' style ='margin-left: 0pt;') Submit
+    a(href='/') 
+      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back
+    br
   script(src="js/upload.js")
