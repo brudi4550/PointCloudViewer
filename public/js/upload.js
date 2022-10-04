@@ -26,7 +26,13 @@ function handleForm(event) {
         document.getElementById("fileToUpload").hidden = !boolean;
         document.getElementById("uploadSubmitButton").hidden = !boolean;
     }
-
+    function updateProgressStatus(part, of) {
+        let progressBar = document.getElementById("progressBar"); 
+        let progressInformation = document.getElementById("progressInformation");
+        progressBar.style.backgroundSize = ((part + 1) * 100 / of) + "% 100%";
+        progressInformation.innerHTML = part + 1 + " of " + of;
+    }
+    
     event.preventDefault();
 
     // FIXME: Geplantes Vorgehen:
@@ -55,11 +61,6 @@ function handleForm(event) {
     let originalFile = document.getElementById("fileToUpload").files[0];
     document.getElementById("inputCloudname").disabled = true;
     let inputCloudname = document.getElementById("inputCloudname").value;
-
-    let progressBar = document.getElementById("progressBar"); 
-    let progressInformation = document.getElementById("progressInformation");
-    progressBar.style.backgroundSize = 50 + "% 100%";
-    progressInformation.innerHTML = 50 + " %";
 
     let getRequest = new Request("http://localhost:3000/pointcloud/" + inputCloudname, {
         method: "GET",
@@ -116,7 +117,8 @@ function handleForm(event) {
                                     return response.json();
                                 })   
                                 .then((data) => {
-                                     console.log("Antwort vom Server:", data);
+                                    updateProgressStatus(part, of);
+                                    console.log("Antwort vom Server:", data);
                                 })
                                 .then(async () => {
                                     // after successfully sending the current chunk, process next chunk recursively

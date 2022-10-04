@@ -163,16 +163,15 @@ th, td {
 }
 
 #progressBarHolder {
-  /* begrenzen des Fortschrittbalkens auf 300px breite */
   width: 300px;
+  height: 30px;
   background-color: #fff;
   border-radius: 5px;
 }
 
 #progressBar {
-  /* Farbverlauf als Hintergrundbild */
+  height: 30px;
   background-image: linear-gradient(#fff, #06d6a9);
-  /* Hintergrund soll nicht über das element wiederholt werden */
   background-repeat:no-repeat;
   /* in der Breite zunächst 0% gefüllt, in der Höhe 100% */
   background-size: 0% 100%;
@@ -182,6 +181,7 @@ th, td {
 }
 
 #progressInformation {
+  height: 30px;
   color: rgba(0,0,0,0.87);
   font-size: 20px;
   text-align: center;
