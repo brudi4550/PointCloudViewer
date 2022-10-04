@@ -2,7 +2,7 @@ const dbService = require('../databaseService');
 const { exec } = require('child_process');
 const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const fs = require('fs-extra');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const s3 = new S3Client({
     region: process.env.REGION,
@@ -176,10 +176,86 @@ module.exports = function (app) {
                             s3multipartUpload(localPath, s3path, 'text/html');
                         });
                     });
-                });
-                res.send('HTML page generated');
+                    res.send('converting has started')
+                })
+            }
+        }
+        authenticate(req, callback);
+    })
+
+
+
+    app.patch('/sendToS3/:pointcloudName', (req, res) => {
+        function callback() {
+            const user = getAuthInfo(req)[0];
+            const pointcloudName = req.params['pointcloudName'];
+            const files = ['hierarchy.bin', 'metadata.json', 'octree.bin'];
+            const suffix = '/' + user + '/' + pointcloudName + '/';
+            const localPath = '../potree_output';
+            const s3path = 'potree_pointclouds';
+            files.forEach(elem => {
+                upload(localPath + suffix + elem, s3path + suffix + elem);
+            });
+            res.send('sent to s3');
+        }
+        authenticate(req, callback);
+    })
+
+
+    app.post('/storeCloud/:pointcloudName', (req, res) => {
+        function callback() {
+            const user = getAuthInfo(req)[0];
+            const pointcloudName = req.param['pointcloudName'];
+            // TODO check how to get the link 
+            const pointcloudLink = req.body.pointcloudLink;
+            if (user === undefined || pointcloudName === undefined || pointcloudLink === undefined) {
+                res.status(400);
+                res.send('user, pointcloud or link could not be found');
             } else {
-                res.send('authentication has not been successful');
+                function databaseCallback(error, result) {
+                    if (error) {
+                        res.status(400);
+                        res.send('the cloud could not be stored in the database');
+                    } else {
+                        res.status(200);
+                        res.send('The pointcloud has been stored in the database');
+                    }
+                }
+                dbService.createNewCloud(pointcloudName, pointcloudLink, user, databaseCallback);
+            }
+
+        }
+        authenticate(req, callback);
+    })
+
+    app.delete('/:pointcloudName', (req, res) => {
+        console.log('delete request : ' + req.params['pointcloudName']);
+        function callback() {
+            const pointcloudName = req.params['pointcloudName'];
+            const user = getAuthInfo(req)[0];
+            if (pointcloudName == undefined) {
+                res.status(400);
+                res.send('No pointcloudName could be found');
+            } else if (user == undefined) {
+                res.status(401);
+                res.send('No user was provided to perform the task')
+            } else {
+                function databaseCallback(error, result) {
+                    if (error) {
+                        console.log(error);
+                        res.status(400)
+                        res.send('Could not execute database query');
+                    } else {
+                        if (result.affectedRows >= 1) {
+                            res.status(200);
+                            res.send('The pointcloud could have been deleted successfully');
+                        } else {
+                            res.status(200);
+                            res.send('The pointcloud was not found for this user');
+                        }
+                    }
+                }
+                dbService.deleteCloud(pointcloudName, user, databaseCallback);
             }
         }
         authenticate(req, callback);
