@@ -1,7 +1,7 @@
 const mysql = require('mysql');
 const dotenv = require('dotenv').config();
 const crypto = require('crypto');
-const util = require( 'util' );
+const util = require('util');
 
 const STANDARD_SCHEMA = "pointcloudDB2";
 
@@ -16,10 +16,10 @@ const UPLOAD_STATUS_ENUM = {
 
 function createPointCloudDBConnection() {
     return mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
+        host: process.env.HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.PASSWORD,
+        port: process.env.PORT
     });
 }
 
@@ -105,8 +105,8 @@ async function createPointCloudEntry(user, cloud_name, public, upload_status, ca
         } else {
             user_name = user;
         }
-        let query = 'INSERT INTO  `pointcloudDB2`.`cloud_table` (cloud_name, created_by, public, upload_status) ' + 
-                    'VALUES (?, ?, ?, ?)';
+        let query = 'INSERT INTO  `pointcloudDB2`.`cloud_table` (cloud_name, created_by, public, upload_status) ' +
+            'VALUES (?, ?, ?, ?)';
         await withTransaction(db, async () => {
             const result = await db.query(query, [cloud_name, user_name, public, upload_status]);
             callback(null, result)
@@ -132,19 +132,19 @@ async function publicClouds(callback) {
 }
 
 async function privateClouds(username, callback) {
-        try {
-            const db = makeDb();
-            let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
-                        'WHERE ((public = FALSE and created_by = ?) or public = TRUE)';
-            await withTransaction(db, async () => {
-                const result = await db.query(query, [username, "COMPLETED"]);
-                callback(null, result, true)
-            });
-        } catch (err) {
-            console.error(err);
-            callback(err);
-        }
+    try {
+        const db = makeDb();
+        let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
+            'WHERE ((public = FALSE and created_by = ?) or public = TRUE)';
+        await withTransaction(db, async () => {
+            const result = await db.query(query, [username, "COMPLETED"]);
+            callback(null, result, true)
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
     }
+}
 
 async function checkSession(username, callback) {
     var connection = createPointCloudDBConnection();
@@ -158,8 +158,8 @@ async function checkSession(username, callback) {
         connection.query('SELECT expiration from session_table where user_name = ?;',
             [
                 username
-            ], 
-            function(error, result) {
+            ],
+            function (error, result) {
                 callback(error, result)
             });
         connection.end();
@@ -178,9 +178,9 @@ async function login(username, password, callback) {
         connection.query("SELECT salt, password_hash FROM user_table WHERE user_name = ?;",
             [
                 username
-            ], 
-            function(error, result) {
-                if(error || !result ||result.length == 0) {
+            ],
+            function (error, result) {
+                if (error || !result || result.length == 0) {
                     callback(false);
                 } else {
                     var passwordHash = crypto.pbkdf2Sync(password, result[0].salt, 1000, 64, `sha512`).toString(`hex`);
@@ -205,8 +205,8 @@ function setNewSession(username, expiration, callback) {
                 username,
                 expiration,
                 expiration
-            ], 
-            function(error, result) {
+            ],
+            function (error, result) {
                 callback(error, result);
             });
         connection.end();
@@ -230,8 +230,8 @@ function createNewUser(username, password, callback) {
                 username,
                 hash,
                 salt
-            ], 
-            function(error, result) {
+            ],
+            function (error, result) {
                 callback(error, result);
             });
         connection.end();
@@ -240,14 +240,14 @@ function createNewUser(username, password, callback) {
 
 function createNewCloud(cloudName, link, username, callback) {
     var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
+        host: process.env.HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.PASSWORD,
+        port: process.env.PORT
     });
 
-    connection.connect(function(err) {
-        if(err) {
+    connection.connect(function (err) {
+        if (err) {
             console.error('Database connection failed: ' + err.stack);
             return;
         }
@@ -257,24 +257,88 @@ function createNewCloud(cloudName, link, username, callback) {
                 cloudName,
                 link,
                 username
-            ], 
-            function(error, result) {
+            ],
+            function (error, result) {
                 callback(error, result);
             });
         connection.end();
     });
 }
 
-function deleteCloud(cloudName, username, callback) {
+function authenticateUser(username, password, callback) {
     var connection = mysql.createConnection({
-        host     : process.env.HOST,
-        user     : process.env.DATABASE_USER,
-        password : process.env.PASSWORD,
-        port     : process.env.PORT
+        host: process.env.HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.PASSWORD,
+        port: process.env.PORT
     });
 
-    connection.connect(function(err) {
-        if(err) {
+    connection.connect(function (err) {
+        if (err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query("SELECT salt, password_hash FROM user_table WHERE user_name = ?;",
+            [
+                username
+            ],
+            function (error, result, fields) {
+                if (error || !result || result.length == 0) {
+                    callback(false);
+                } else {
+                    var passwordHash = crypto.pbkdf2Sync(password, result[0].salt, 1000, 64, `sha512`).toString(`hex`);
+                    callback(passwordHash === result[0].password_hash);
+                }
+            });
+        connection.end()
+    });
+}
+
+//function assumes user has already been authenticated
+function authenticateAction(username, pointcloudName, callback) {
+    var connection = mysql.createConnection({
+        host: process.env.HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.PASSWORD,
+        port: process.env.PORT
+    });
+
+    connection.connect(function (err) {
+        if (err) {
+            console.error('Database connection failed: ' + err.stack);
+            return;
+        }
+        connection.query('USE pointcloudDB;');
+        connection.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON ' +
+            'cloud_table.created_by = user_table.user_name ' +
+            'WHERE user_table.user_name = ? ' +
+            'AND cloud_table.cloud_name = ?;',
+            [
+                username,
+                pointcloudName
+            ],
+            function (error, result, fields) {
+                if (error || !result || result.length == 0) {
+                    callback(false);
+                } else {
+                    callback(true);
+                }
+            });
+        connection.end()
+    });
+}
+
+function deleteCloud(cloudName, username, callback) {
+    var connection = mysql.createConnection({
+        host: process.env.HOST,
+        user: process.env.DATABASE_USER,
+        password: process.env.PASSWORD,
+        port: process.env.PORT
+    });
+
+    connection.connect(function (err) {
+        if (err) {
             console.error('Database connection failed: ' + err.stack);
             return;
         }
@@ -283,8 +347,8 @@ function deleteCloud(cloudName, username, callback) {
             [
                 username,
                 cloudName
-            ], 
-            function(error, result) {
+            ],
+            function (error, result) {
                 callback(error, result);
             });
         connection.end();
@@ -338,4 +402,17 @@ async function getNextUploadIDByUser(username, password, callback) {
 }
 
 // TODO write function to store new pointcloud
-module.exports = { publicClouds, privateClouds, login, checkSession, setNewSession, createNewUser, getNextUploadIDByUser, createPointCloudEntry, getUserIdByName, getPointcloudEntryByCloudnameAndUsername };
+module.exports = {
+    publicClouds,
+    privateClouds,
+    login,
+    checkSession,
+    setNewSession,
+    createNewUser,
+    getNextUploadIDByUser,
+    createPointCloudEntry,
+    getUserIdByName,
+    getPointcloudEntryByCloudnameAndUsername,
+    authenticateAction,
+    authenticateUser
+};

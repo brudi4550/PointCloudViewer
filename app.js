@@ -1,23 +1,13 @@
 const express = require('express');
 const multer = require('multer');
 const sessions = require('express-session');
-const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const app = express();
-const busboy = require('connect-busboy');   // Middleware to handle the file upload https://github.com/mscdex/connect-busboy
-const path = require('path');               // Used for manipulation with path
-const fs = require('fs-extra');             // Classic fs
+const path = require('path');
+const fs = require('fs-extra');
 const port = 3000;
-const { exec, execFile } = require("child_process");
 const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const AWS = require('aws-sdk');
-const s3 = new AWS.S3({
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-})
 const UPLOAD_STATUS_ENUM = {
   UNDEFINED: 'UNDEFINED',
   INITIALIZED: 'INITIALIZED',
@@ -32,11 +22,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.set('view engine', 'pug');
 app.use(express.static(__dirname + '/public'));
-
-app.use(busboy({
-  highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
-})); // Insert the busboy middle-ware
-
 
 app.use(cookieParser());
 
@@ -105,38 +90,6 @@ app.get('/upload', (req, res) => {
     title: 'PointCloudViewer',
   })
 })
-
-app.route('/upload').post(async (req, res, next) => {
-  console.log('received post request');
-  var awaitUpload = new Promise(function (resolve, reject) {
-    try {
-      req.pipe(req.busboy); // Pipe it trough busboy
-      req.busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
-        console.log(fieldname)
-        console.log(filename.filename)
-        console.log(`Upload of '${filename.filename}' started`);
-        // Create a write stream of the new file
-        //fix naming + file type of uploaded file
-        const fstream = fs.createWriteStream(path.join(uploadPath, filename.filename));
-        // Pipe it trough
-        file.pipe(fstream);
-        // On finish of the upload
-        fstream.on('close', () => {
-          console.log(`Upload of '${filename.filename}' finished`);
-          resolve(filename.filename)
-        });
-      });
-    } catch (error) {
-      reject(error)
-    }
-  })
-  awaitUpload.then(resolve => {
-    convertFilePromise(resolve).then(resolve2 => {
-      console.log('Request has been returned')
-      res.redirect('back')
-    })
-  });
-});
 
 /*============================================================================
   GET: /pointcloud/:cloud_name
