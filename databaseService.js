@@ -205,16 +205,20 @@ function authenticateAction(username, pointcloudName, callback) {
             return;
         }
         connection.query('USE pointcloudDB;');
-        connection.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON' +
-            + 'cloud_table.created_by = user_table.user_name'
-            + 'WHERE user_table.user_name = ?'
-            + 'AND cloud_table.cloud_name = ?',
+        connection.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON ' +
+        'cloud_table.created_by = user_table.user_name ' +
+        'WHERE user_table.user_name = ? ' + 
+        'AND cloud_table.cloud_name = ?;',
             [
                 username,
                 pointcloudName
             ],
             function (error, result, fields) {
-                return callback(error || !result || result.length == 0);
+                if (error || !result || result.length == 0) {
+                    callback(false);
+                } else {
+                    callback(true);
+                }
             });
         connection.end()
     });
