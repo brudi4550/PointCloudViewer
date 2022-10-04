@@ -20,6 +20,7 @@
     "@aws-sdk/client-s3": "^3.165.0",
     "@aws-sdk/lib-storage": "^3.183.0",
     "aws-sdk": "^2.1213.0",
+    "axios": "^1.0.0",
     "connect-busboy": "^1.0.0",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.0.2",

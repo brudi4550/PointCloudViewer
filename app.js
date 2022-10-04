@@ -9,7 +9,7 @@ const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
 const AWS = require('aws-sdk');
-const os = require('os');
+const axios = require('axios');
 const s3 = new AWS.S3({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -125,6 +125,10 @@ app.get('/pointcloud/:cloud_name', (request, response) => {
 
 /*============================================================================
   PUT: /multipart-upload/start-upload
+------------------------------------------------------------------------------
+  prepares the server for an upcoming upload
+    - creates pointcloud entry in database
+    - create directory for the planned upload 
 ============================================================================*/
 app.put('/multipart-upload/start-upload', (request, response) => {
   const UPLOAD_FOLDER_PATH = path.join(__dirname, "las");
@@ -206,7 +210,7 @@ app.post('/multipart-upload/complete-upload', (request, response) => {
         .status(500)
         .json("Beim Löschen der einzelnen Upload-Teile ist ein Fehler aufgetreten.");
     }
-    if (!convertFile()) {
+    if (!convertFile(request.body.cloud_name)) {
       return response
         .status(500)
         .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
@@ -265,9 +269,12 @@ function deleteChunks(filestorage_path) {
   return true;
 }
 
-function convertFile() {
-  console.log(os.type());
-  return true;
+function convertFile(cloud_name) {
+  axios.patch("http://localhost:3000/convertFile/" + cloud_name)
+    .then(response => {
+      console.log("convertFile:", cloud_name);
+      return true;
+    });
 }
 
 function uploadFileToAmazonS3() {
