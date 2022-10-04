@@ -4,6 +4,7 @@ las
 PotreeConverter
 potree_output
 potree_pages
+*.DS_Store
 
 # Logs
 logs

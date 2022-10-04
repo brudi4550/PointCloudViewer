@@ -50,6 +50,7 @@ module.exports = function (app) {
         dbService.login(username, passwordHash, callbackLogin);
     })
 
+    // TODO check for special chars
     app.post('/createNewUser', (req, res) => {
         console.log('creating new user');
         function callback(error, result) {
