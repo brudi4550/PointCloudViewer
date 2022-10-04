@@ -2,9 +2,20 @@ extends index.pug
 
 block content
   .container
+    h2.text-white Upload Point Cloud
+    br
     form(id='uploadForm')
-      input(type='file', name='fileToUpload' id='fileToUpload' required)
+      input.form-control(type='file' name='fileToUpload' id='fileToUpload' required)
       br
-      input(type='submit' id='beginUpload')
-
+      div(id='elemtentsAfterFileChosen' hidden)
+        label#login Name of uploaded pointcloud:
+        br
+        input.form-control(type='text' id='inputCloudname')
+        br
+        input.btn.btn-dark.point-cloud-button(type='submit' value='Submit' id='uploadSubmitButton')
+    div(id='uploadProgress' hidden)
+      label#login Upload-progress:
+        div(id='progressBarHolder')
+          div(id='progressBar')
+            div(id='progressInformation')
   script(src="js/upload.js")

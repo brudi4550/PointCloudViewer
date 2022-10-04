@@ -23,14 +23,14 @@ block content
           th Link to point cloud
           th#deleteB  Delete
         tr
-        <!--write two loops one to picture only the clouds with public label and one for the other one-->
         each cloud in clouds
           if cloud.public
+            - var functionCall = "deletePointCloud('"+cloud.cloud_name+"')";
             tr
               td #{cloud.cloud_name} 
               td #{cloud.link}
               td#deleteB 
-                button.btn.btn-primary.btn-dark.point-cloud-button Delete
+                button.btn.btn-primary.btn-dark.point-cloud-button(onclick=functionCall) Delete
     .row
       h2.text-white My Clouds
       if validSession
@@ -39,7 +39,7 @@ block content
           tr
             th Point cloud name
             th Link to point cloud
-            th#deleteB  Delete
+            th#deleteB  Delete 
           tr
         .scrollableTable
           table.table.table-dark.table-bordered.table-hover#mycloud
@@ -49,7 +49,7 @@ block content
                     td #{cloud.cloud_name} 
                     td #{cloud.link}
                     td#deleteB 
-                      button.btn.btn-primary.btn-dark.point-cloud-button Delete
+                      button.btn.btn-primary.btn-dark.point-cloud-button(class = 'deletionButton' onclick="deletePointCloud([cloud.cloud_name])") Delete
       else
         .uploadedClouds
           h3.text-white Login to see your uploaded clouds

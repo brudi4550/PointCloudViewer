@@ -1,34 +1,27 @@
 const express = require('express');
 const multer = require('multer');
 const sessions = require('express-session');
-const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const app = express();
-const busboy = require('connect-busboy');   // Middleware to handle the file upload https://github.com/mscdex/connect-busboy
-const path = require('path');               // Used for manipulation with path
-const fs = require('fs-extra');             // Classic fs
+const path = require('path');
+const fs = require('fs-extra');
 const port = 3000;
-const { exec, execFile } = require("child_process");
 const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
-const AWS = require('aws-sdk');
-const s3 = new AWS.S3({
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-})
+const UPLOAD_STATUS_ENUM = {
+  UNDEFINED: 'UNDEFINED',
+  INITIALIZED: 'INITIALIZED',
+  COMPLETE_ORDER_SENT: 'COMPLETE_ORDER_SENT',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  ON_UPDATE: 'ON_UPDATE'
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.set('view engine', 'pug');
 app.use(express.static(__dirname + '/public'));
-
-app.use(busboy({
-  highWaterMark: 2 * 1024 * 1024, // Set 2MiB buffer
-})); // Insert the busboy middle-ware
-
 
 app.use(cookieParser());
 
@@ -98,77 +91,62 @@ app.get('/upload', (req, res) => {
   })
 })
 
-app.route('/upload').post(async (req, res, next) => {
-  console.log('received post request');
-  var awaitUpload = new Promise(function (resolve, reject) {
-    try {
-      req.pipe(req.busboy); // Pipe it trough busboy
-      req.busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
-        console.log(fieldname)
-        console.log(filename.filename)
-        console.log(`Upload of '${filename.filename}' started`);
-        // Create a write stream of the new file
-        //fix naming + file type of uploaded file
-        const fstream = fs.createWriteStream(path.join(uploadPath, filename.filename));
-        // Pipe it trough
-        file.pipe(fstream);
-        // On finish of the upload
-        fstream.on('close', () => {
-          console.log(`Upload of '${filename.filename}' finished`);
-          resolve(filename.filename)
-        });
-      });
-    } catch (error) {
-      reject(error)
+/*============================================================================
+  GET: /pointcloud/:cloud_name
+============================================================================*/
+app.get('/pointcloud/:cloud_name', (request, response) => {
+  dbService.getPointcloudEntryByCloudnameAndUsername(request.params.cloud_name, request.session.userid, function(err, result) {
+    if (err && err.message.startsWith("pointcloud not found with name = ")) {
+      return response
+        .status(404)
+        .send(err);
+    }
+    if (err) {
+      return response
+        .status(500)
+        .send(err);
+    }
+    if (result) {
+      return response
+        .status(200)
+        .send(result);
     }
   })
-  awaitUpload.then(resolve => {
-    convertFilePromise(resolve).then(resolve2 => {
-      console.log('Request has been returned')
-      res.redirect('back')
-    })
-  });
 });
 
 /*============================================================================
-  POST: /multipart-upload
+  PUT: /multipart-upload/start-upload
 ============================================================================*/
-app.post('/multipart-upload', (request, response) => {
-  let uploadFolderPath,
-    uploadID;
-
+app.put('/multipart-upload/start-upload', (request, response) => {
+  const UPLOAD_FOLDER_PATH = path.join(__dirname, "las");
+  let userID,
+      cloudID;
   try {
-    uploadFolderPath = path.join(__dirname, "uploadFiles");
-    // uploadID = fs.readdirSync(uploadFolderPath).length; // FIXME: ID aus der Datenbank lesen
-    dbService.getNextUploadIDByUser(request.session.userid, "", function(err, id) {
+    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, 0, UPLOAD_STATUS_ENUM.INITIALIZED, function(err, id) {
       if (err) {
         return response
           .status(500)
-          .send("generating upload id failed", uploadID)
-      } else {
-        uploadID = id;
-        // create directory for the planned upload 
-        fs.mkdir(path.join(uploadFolderPath, uploadID.toString()), 
-        { recursive: true }, (err) => {
-          if (err) {
+          .json("creating pointcloud entry failed", err)
+        } else { 
+          cloudID = id; 
+          dbService.getUserIdByName(request.session.userid, function(err, id) {
+            if (err) {
+              return response.status(500).send({error: err.message})
+            }
+            userID = id;
+            // create directory for the planned upload
+            fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, userID.toString(), cloudID.insertId.toString()));
             return response
-              .status(500)
-              .send("creating directory for the planned upload failed: ", err)
-          }
-        });
-
-        return response
-          .status(201)
-          .location("/multipart-upload/" + uploadID.toString())
-          .send({
-            id: uploadID,
-            chunkSizeInBit: 1024 * 1024 / 2,
-            uploadCompleted: false
-          })
+              .status(200)
+              .location("/multipart-upload/" + cloudID.toString())
+              .send({
+                // id: uploadID,
+                chunkSizeInBit: 1024 * 1024 / 2,
+                uploadCompleted: false
+              })
+            });
       }
     });
-
-
   } catch (err) {
     return response
       .status(500)
@@ -177,12 +155,17 @@ app.post('/multipart-upload', (request, response) => {
 })
 
 /*============================================================================
-  PUT: /multipart-upload/:id
+  PUT: /multipart-upload
 ============================================================================*/
 // storage controls the server-side disk-storage of the incoming files
 const STORAGE = multer.diskStorage({
   destination: function (request, file, callback) {
-    callback(null, "./uploadFiles/" + request.body.id);
+    dbService.getUserIdByName(request.session.userid, function(err, user_id) {
+      if (err) {
+        throw new Error(err.message);
+      }
+      callback(null, path.join(__dirname, "las", user_id.toString(), request.body.id));
+    })
   },
   filename: function (request, file, callback) {
     callback(null, file.originalname + request.body.part);
@@ -190,7 +173,7 @@ const STORAGE = multer.diskStorage({
 });
 const UPLOAD = multer({ storage: STORAGE });
 
-app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => {
+app.put('/multipart-upload', UPLOAD.single("fileToUpload"), (request, response) => {
   // uploaded binary data already saved at this point
   return response
     .status(200)
@@ -198,36 +181,39 @@ app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, respon
 });
 
 /*============================================================================
-  POST: /multipart-upload/:id/completeUpload
+  POST: /multipart-upload/complete-upload
 ============================================================================*/
-app.post('/multipart-upload/:id/completeUpload', (request, response) => {
-  if (!mergeUploadedChunksIntoFinalFile(request.params.id)) {
+app.post('/multipart-upload/complete-upload', (request, response) => {
+  dbService.getUserIdByName(request.session.userid, function(err, user_id) {
+    if (err) { throw new Error(err.message); }
+    if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
+      return response
+        .status(500)
+        .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
+    }
+    if (!convertFile(request.params.id)) {
+      return response
+        .status(500)
+        .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
+    }
+    if (!uploadFileToAmazonS3(request.params.id)) {
+      return response
+        .status(500)
+        .json("Multipart-Upload erfolgreich zusammengesetzt und konvertiert, aber beim Upload auf Amazon S3 ist ein Fehler aufgetreten.");
+    }
+    // FIXME: set db completed status to true
+    // FIXME: delete local files
     return response
-      .status(500)
-      .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
-  }
-  if (!convertFile(request.params.id)) {
-    return response
-      .status(500)
-      .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
-  }
-  if (!uploadFileToAmazonS3(request.params.id)) {
-    return response
-      .status(500)
-      .json("Multipart-Upload erfolgreich zusammengesetzt und konvertiert, aber beim Upload auf Amazon S3 ist ein Fehler aufgetreten.");
-  }
-  // FIXME: set db completed status to true
-  // FIXME: delete local files
-  return response
-    .status(200)
-    .json("Multipart-Upload erfolgreich zusammengesetzt, konvertiert und auf Amazon S3 geladen.");
+      .status(200)
+      .json("Multipart-Upload erfolgreich zusammengesetzt, konvertiert und auf Amazon S3 geladen.");
+  })
+
 });
 
-
-function mergeUploadedChunksIntoFinalFile(id) {
+function mergeUploadedChunksIntoFinalFile(user_id, cloud_id) {
   try {
     const mergedFilename = "Dateiname.jpg"; // FIXME: read from database
-    const uploadFolderPath = path.join(__dirname, "uploadFiles", id); // FIXME: different directory ... maybe username/{uploadId}
+    const uploadFolderPath = path.join(__dirname, "las", user_id.toString(), cloud_id);
     // delete merged file if exists (necessary if an error has occurred previously)
     if (fs.existsSync(path.join(uploadFolderPath, mergedFilename))) {
       fs.unlinkSync(path.join(uploadFolderPath, mergedFilename));
@@ -246,6 +232,7 @@ function mergeUploadedChunksIntoFinalFile(id) {
       });
     });
   } catch (error) {
+    console.log(error);
     return false;  
   }
   return true;
