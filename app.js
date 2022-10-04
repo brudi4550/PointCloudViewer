@@ -143,15 +143,20 @@ app.route('/upload').post(async (req, res, next) => {
 ============================================================================*/
 app.get('/pointcloud/:cloud_name', (request, response) => {
   dbService.getPointcloudEntryByCloudnameAndUsername(request.params.cloud_name, request.session.userid, function(err, result) {
+    if (err && err.message.startsWith("pointcloud not found with name = ")) {
+      return response
+        .status(404)
+        .send(err);
+    }
     if (err) {
       return response
         .status(500)
-        .send(err)
+        .send(err);
     }
     if (result) {
       return response
         .status(200)
-        .send(result)
+        .send(result);
     }
   })
 });
@@ -179,7 +184,7 @@ app.put('/multipart-upload/start-upload', (request, response) => {
             // create directory for the planned upload
             fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, userID.toString(), cloudID.insertId.toString()));
             return response
-              .status(201)
+              .status(200)
               .location("/multipart-upload/" + cloudID.toString())
               .send({
                 // id: uploadID,
@@ -197,12 +202,17 @@ app.put('/multipart-upload/start-upload', (request, response) => {
 })
 
 /*============================================================================
-  PUT: /multipart-upload/:id
+  PUT: /multipart-upload
 ============================================================================*/
 // storage controls the server-side disk-storage of the incoming files
 const STORAGE = multer.diskStorage({
   destination: function (request, file, callback) {
-    callback(null, "./las/" + request.body.id);
+    dbService.getUserIdByName(request.session.userid, function(err, user_id) {
+      if (err) {
+        throw new Error(err.message);
+      }
+      callback(null, path.join(__dirname, "las", user_id.toString(), request.body.id));
+    })
   },
   filename: function (request, file, callback) {
     callback(null, file.originalname + request.body.part);
@@ -210,7 +220,7 @@ const STORAGE = multer.diskStorage({
 });
 const UPLOAD = multer({ storage: STORAGE });
 
-app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, response) => {
+app.put('/multipart-upload', UPLOAD.single("fileToUpload"), (request, response) => {
   // uploaded binary data already saved at this point
   return response
     .status(200)
@@ -218,36 +228,39 @@ app.put('/multipart-upload/:id', UPLOAD.single("fileToUpload"), (request, respon
 });
 
 /*============================================================================
-  POST: /multipart-upload/:id/completeUpload
+  POST: /multipart-upload/complete-upload
 ============================================================================*/
-app.post('/multipart-upload/:id/completeUpload', (request, response) => {
-  if (!mergeUploadedChunksIntoFinalFile(request.params.id)) {
+app.post('/multipart-upload/complete-upload', (request, response) => {
+  dbService.getUserIdByName(request.session.userid, function(err, user_id) {
+    if (err) { throw new Error(err.message); }
+    if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
+      return response
+        .status(500)
+        .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
+    }
+    if (!convertFile(request.params.id)) {
+      return response
+        .status(500)
+        .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
+    }
+    if (!uploadFileToAmazonS3(request.params.id)) {
+      return response
+        .status(500)
+        .json("Multipart-Upload erfolgreich zusammengesetzt und konvertiert, aber beim Upload auf Amazon S3 ist ein Fehler aufgetreten.");
+    }
+    // FIXME: set db completed status to true
+    // FIXME: delete local files
     return response
-      .status(500)
-      .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
-  }
-  if (!convertFile(request.params.id)) {
-    return response
-      .status(500)
-      .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
-  }
-  if (!uploadFileToAmazonS3(request.params.id)) {
-    return response
-      .status(500)
-      .json("Multipart-Upload erfolgreich zusammengesetzt und konvertiert, aber beim Upload auf Amazon S3 ist ein Fehler aufgetreten.");
-  }
-  // FIXME: set db completed status to true
-  // FIXME: delete local files
-  return response
-    .status(200)
-    .json("Multipart-Upload erfolgreich zusammengesetzt, konvertiert und auf Amazon S3 geladen.");
+      .status(200)
+      .json("Multipart-Upload erfolgreich zusammengesetzt, konvertiert und auf Amazon S3 geladen.");
+  })
+
 });
 
-
-function mergeUploadedChunksIntoFinalFile(id) {
+function mergeUploadedChunksIntoFinalFile(user_id, cloud_id) {
   try {
     const mergedFilename = "Dateiname.jpg"; // FIXME: read from database
-    const uploadFolderPath = path.join(__dirname, "uploadFiles", id); // FIXME: different directory ... maybe username/{uploadId}
+    const uploadFolderPath = path.join(__dirname, "las", user_id.toString(), cloud_id);
     // delete merged file if exists (necessary if an error has occurred previously)
     if (fs.existsSync(path.join(uploadFolderPath, mergedFilename))) {
       fs.unlinkSync(path.join(uploadFolderPath, mergedFilename));
@@ -266,6 +279,7 @@ function mergeUploadedChunksIntoFinalFile(id) {
       });
     });
   } catch (error) {
+    console.log(error);
     return false;  
   }
   return true;

@@ -66,8 +66,8 @@ function handleForm(event) {
     });
     fetch(getRequest)
         .then(getResponse => getResponse.json())
-        .then(async cloud_table_data => {
-            if (cloud_table_data.length == 1) {
+        .then(async cloud_obj => {
+            if (Object.entries(cloud_obj).length != 0) {
                 alert("The name of this point cloud already exists. Please delete the point cloud first or enter another name.");
                 showFileChooserAndSubmitButton(true);
                 showProgressBar(false);
@@ -77,12 +77,70 @@ function handleForm(event) {
             showFileChooserAndSubmitButton(false);
             showProgressBar(true);
 
-            let startUploadRequest = new Request("http://localhost:3000/multipart-upload/start-upload", {
+            let startRequest = new Request("http://localhost:3000/multipart-upload/start-upload", {
                 body: new URLSearchParams("cloud_name=" + inputCloudname),
                 method: "PUT",
             });
-            await fetch(startUploadRequest)
-                .then((startUploadResponse) => {
+            await fetch(startRequest)
+                .then(startResponse => startResponse.json())
+                .then(async startRequestData => {
+                    const responseForCloudID = await fetch(new Request("http://localhost:3000/pointcloud/" + inputCloudname, { method: "GET" }));
+                    const responseDataForCloudID = await responseForCloudID.json();
+                    const CLOUD_ID = await responseDataForCloudID.id;
+                    const UPLOADURL = "http://localhost:3000/multipart-upload";
+                    const CHUNKSIZE = 1024 * 1024 / 2; 
+
+                    async function processChunk(part, of) {
+                        // TODO: Zu neuer Seite leiten und Fortschritt des Uploads anzeigen?
+                        if (part < of) {
+                            let offset = part * CHUNKSIZE;
+                            console.log("Verarbeite Part " + (part + 1).toString() + " von " + of.toString());
+
+                            // prepare formdata
+                            let formData = new FormData();
+                            formData.append("id", CLOUD_ID);
+                            formData.append("cloud_name", inputCloudname);
+                            formData.append("part", part);
+                            formData.append("fileToUpload", originalFile.slice(offset, offset + CHUNKSIZE));
+
+                            // send chunk
+                            let request = new Request(UPLOADURL, { 
+                                body: formData,
+                                method: "PUT",
+                            });
+                            await fetch(request)
+                                .then((response) => {
+                                    if (response.status != 200) {
+                                        console.error("error");
+                                    }
+                                    return response.json();
+                                })   
+                                .then((data) => {
+                                     console.log("Antwort vom Server:", data);
+                                })
+                                .then(async () => {
+                                    // after successfully sending the current chunk, process next chunk recursively
+                                    await processChunk(part + 1, of);
+                                })
+                        }
+                    }
+                    
+                    // slice original file into chunks and send them one after another
+                    let chunks = Math.ceil(originalFile.size / CHUNKSIZE, CHUNKSIZE);
+                    let chunk = 0;
+                    await processChunk(chunk, chunks)
+                        // send post request for upload-completion after processing all chunks
+                        .then(() => {
+                            console.log("Beginne mit Abschluss des Uploads");
+                            let requestForCompleting = new Request("http://localhost:3000/multipart-upload/complete-upload", {
+                                body: new URLSearchParams("id=" + CLOUD_ID),
+                                method: "POST",
+                            });
+                            fetch(requestForCompleting)
+                                .then((response) => {
+                                    console.log(response.json());
+                                })
+                        });
                 })
         })
 
