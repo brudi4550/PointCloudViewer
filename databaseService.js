@@ -82,14 +82,12 @@ async function getPointcloudEntryByCloudnameAndUsername(cloudname, username, cal
         await withTransaction(db, async () => {
             const result = await db.query('SELECT * FROM cloud_table WHERE cloud_name = ? AND created_by = ?', [cloudname, username]);
             if (result.length == 1) {
-                callback(null, result);
+                callback(null, result[0]);
             } else {
                 throw new Error("pointcloud not found with name = " + cloudname);
             }
-            callback(error, result, false)
         });
     } catch (err) {
-        console.error(err);
         callback(err);
     }
 }
