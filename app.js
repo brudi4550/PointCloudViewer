@@ -12,6 +12,7 @@ const { stderr, env } = require('process');
 const dbService = require('./databaseService');
 const cookieParser = require("cookie-parser");
 const AWS = require('aws-sdk');
+const os = require('os');
 const s3 = new AWS.S3({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -233,17 +234,23 @@ app.put('/multipart-upload', UPLOAD.single("fileToUpload"), (request, response) 
 app.post('/multipart-upload/complete-upload', (request, response) => {
   dbService.getUserIdByName(request.session.userid, function(err, user_id) {
     if (err) { throw new Error(err.message); }
+    const UPLOAD_FOLDER_PATH = path.join(__dirname, "las", user_id.toString(), request.body.id);
     if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
       return response
         .status(500)
         .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
     }
-    if (!convertFile(request.params.id)) {
+    if (!deleteChunks(UPLOAD_FOLDER_PATH)) {
+      return response
+        .status(500)
+        .json("Beim Löschen der einzelnen Upload-Teile ist ein Fehler aufgetreten.");
+    }
+    if (!convertFile()) {
       return response
         .status(500)
         .json("Multipart-Upload erfolgreich zusammengesetzt, aber beim Konvertieren von LAS zu ... ist ein Fehler aufgetreten.");
     }
-    if (!uploadFileToAmazonS3(request.params.id)) {
+    if (!uploadFileToAmazonS3()) {
       return response
         .status(500)
         .json("Multipart-Upload erfolgreich zusammengesetzt und konvertiert, aber beim Upload auf Amazon S3 ist ein Fehler aufgetreten.");
@@ -259,37 +266,50 @@ app.post('/multipart-upload/complete-upload', (request, response) => {
 
 function mergeUploadedChunksIntoFinalFile(user_id, cloud_id) {
   try {
-    const mergedFilename = "Dateiname.jpg"; // FIXME: read from database
+    const mergedFilename = cloud_id + ".las";
     const uploadFolderPath = path.join(__dirname, "las", user_id.toString(), cloud_id);
     // delete merged file if exists (necessary if an error has occurred previously)
     if (fs.existsSync(path.join(uploadFolderPath, mergedFilename))) {
       fs.unlinkSync(path.join(uploadFolderPath, mergedFilename));
     }
     // read each chunk and merge it into final file
-    fs.readdir(uploadFolderPath, function (err, filenames) {
-      if (err) return false;
-      filenames // chunks are numbered, but stored without leading zeros; therefore they must first be sorted
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .forEach(function (chunkFilename) {
-          if (fs.statSync(path.join(uploadFolderPath, chunkFilename)).isFile()) {
-            const data = fs.readFileSync(path.join(uploadFolderPath, chunkFilename));
-            fs.appendFileSync(path.join(uploadFolderPath, mergedFilename), data);
-          };
-
-      });
+    const filenames = fs.readdirSync(uploadFolderPath);
+    filenames // chunks are numbered, but stored without leading zeros; therefore they must first be sorted
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .forEach(function (chunkFilename) {
+        if (fs.statSync(path.join(uploadFolderPath, chunkFilename)).isFile()) {
+          const data = fs.readFileSync(path.join(uploadFolderPath, chunkFilename));
+          fs.appendFileSync(path.join(uploadFolderPath, mergedFilename), data);
+        };
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return false;  
   }
   return true;
 }
 
-function convertFile(id) {
+function deleteChunks(filestorage_path) {
+  try {
+    const filenames = fs.readdirSync(filestorage_path);
+    filenames.forEach(function (filename) {
+      if (fs.statSync(path.join(filestorage_path, filename)).isFile() && !filename.endsWith(".las")) {
+        fs.unlinkSync(path.join(filestorage_path, filename));
+      };
+    })
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
   return true;
 }
 
-function uploadFileToAmazonS3(id) {
+function convertFile() {
+  console.log(os.type());
+  return true;
+}
+
+function uploadFileToAmazonS3() {
   return true;
 }
 

@@ -6,7 +6,7 @@ document.getElementById("fileToUpload").addEventListener("change", function() {
     let inputCloudname = document.getElementById("inputCloudname");
     if (this.files.length > 0) {
         // mime type of las files not available, so it's only possible to check file type by filename
-        if (!this.files[0].name.endsWith(".jpg")) {
+        if (!this.files[0].name.endsWith(".las")) {
             elemtentsAfterFileChosen.hidden = true;
             alert("Please choose another file: only *.las files supported.");
             return;
@@ -25,7 +25,7 @@ document.getElementById("fileToUpload").addEventListener("change", function() {
 ============================================================================*/
 document.getElementById("uploadForm").addEventListener("submit", handleForm);
 function handleForm(event) {
-    
+
     // helper functions
     // ============================================================================
     function showProgressBar(boolean) {
