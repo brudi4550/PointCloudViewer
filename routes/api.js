@@ -47,6 +47,18 @@ module.exports = function (app) {
             'base64').toString().split(':');
     }
 
+    //returns undefined if no session exists and no HTTP Auth is included in the request
+    function getUsername(req) {
+        var username;
+        var httpAuthInfo = getAuthInfo(req);
+        if (httpAuthInfo === undefined) {
+            username = req.session.userid;
+        } else {
+            username = httpAuthInfo[0];
+        }
+        return username;
+    }
+
     function authenticate(req, callback) {
 
         function sessionResultCallback(error, result) {
@@ -96,7 +108,7 @@ module.exports = function (app) {
     app.patch('/convertFile/:pointcloudName', (req, res) => {
         function callback(validAuth) {
             if (validAuth) {
-                const user = getAuthInfo(req)[0];
+                const user = getUsername(req);
                 const pointcloudName = req.params['pointcloudName'];
                 exec('./PotreeConverter/build/PotreeConverter ./las/' + user + '/' + pointcloudName
                     + '.las -o ./potree_output/' + user + '/' + pointcloudName, (error, stdout, stderr) => {
@@ -122,7 +134,7 @@ module.exports = function (app) {
         console.log()
         function callback(validAuth) {
             if (validAuth) {
-                const user = getAuthInfo(req)[0];
+                const user = getUsername(req);
                 const pointcloudName = req.params['pointcloudName'];
                 const suffix = '/' + user + '/' + pointcloudName + '/';
                 const localPath = './potree_output' + suffix;
@@ -141,8 +153,8 @@ module.exports = function (app) {
     app.patch('/generateHTMLPage/:pointcloudName', (req, res) => {
         function callback(validAuth) {
             if (validAuth) {
+                const user = getUsername(req);
                 const pointcloudName = req.params['pointcloudName'];
-                const user = getAuthInfo(req)[0];
                 const localPath = './potree_pages/' + user + '/' + pointcloudName + '.html';
                 const s3path = 'pointcloud_pages/' + user + '/' + pointcloudName + '.html';
                 exec('mkdir ./potree_pages/' + user, (error, stdout, stderr) => {
@@ -187,7 +199,7 @@ module.exports = function (app) {
 
     app.patch('/sendToS3/:pointcloudName', (req, res) => {
         function callback() {
-            const user = getAuthInfo(req)[0];
+            const user = getUsername(req);
             const pointcloudName = req.params['pointcloudName'];
             const files = ['hierarchy.bin', 'metadata.json', 'octree.bin'];
             const suffix = '/' + user + '/' + pointcloudName + '/';
@@ -204,7 +216,7 @@ module.exports = function (app) {
 
     app.post('/storeCloud/:pointcloudName', (req, res) => {
         function callback() {
-            const user = getAuthInfo(req)[0];
+            const user = getUsername(req);
             const pointcloudName = req.param['pointcloudName'];
             // TODO check how to get the link 
             const pointcloudLink = req.body.pointcloudLink;
@@ -232,7 +244,7 @@ module.exports = function (app) {
         console.log('delete request : ' + req.params['pointcloudName']);
         function callback() {
             const pointcloudName = req.params['pointcloudName'];
-            const user = getAuthInfo(req)[0];
+            const user = getUsername(req);
             if (pointcloudName == undefined) {
                 res.status(400);
                 res.send('No pointcloudName could be found');
