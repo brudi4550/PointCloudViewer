@@ -1,7 +1,7 @@
 /*============================================================================
     submit button not visible until file is a valid *.las-file
 ============================================================================*/
-document.getElementById("fileToUpload").addEventListener("change", function() {
+document.getElementById("fileToUpload").addEventListener("change", function () {
     let elemtentsAfterFileChosen = document.getElementById("elemtentsAfterFileChosen");
     let inputCloudname = document.getElementById("inputCloudname");
     if (this.files.length > 0) {
@@ -36,7 +36,7 @@ function handleForm(event) {
         document.getElementById("uploadSubmitButton").hidden = !boolean;
     }
     function updateProgressStatus(part, of) {
-        let progressBar = document.getElementById("progressBar"); 
+        let progressBar = document.getElementById("progressBar");
         let progressInformation = document.getElementById("progressInformation");
         progressBar.style.backgroundSize = ((part + 1) * 100 / of) + "% 100%";
         progressInformation.innerHTML = part + 1 + " of " + of;
@@ -68,12 +68,12 @@ function handleForm(event) {
     // 4. POST http://localhost:3000/multipart_upload/complete_upload
 
     let uploadForm = event.target;
-    
+
     let originalFile = document.getElementById("fileToUpload").files[0];
     document.getElementById("inputCloudname").disabled = true;
     let inputCloudname = document.getElementById("inputCloudname").value;
 
-    let getRequest = new Request("http://localhost:3000/pointcloud/" + inputCloudname, {
+    let getRequest = new Request("pointcloud/" + inputCloudname, {
         method: "GET",
     });
     fetch(getRequest)
@@ -89,18 +89,18 @@ function handleForm(event) {
             showFileChooserAndSubmitButton(false);
             showProgressBar(true);
 
-            let startRequest = new Request("http://localhost:3000/multipart-upload/start-upload", {
+            let startRequest = new Request("multipart-upload/start-upload", {
                 body: new URLSearchParams("cloud_name=" + inputCloudname),
                 method: "PUT",
             });
             await fetch(startRequest)
                 .then(startResponse => startResponse.json())
                 .then(async startRequestData => {
-                    const responseForCloudID = await fetch(new Request("http://localhost:3000/pointcloud/" + inputCloudname, { method: "GET" }));
+                    const responseForCloudID = await fetch(new Request("pointcloud/" + inputCloudname, { method: "GET" }));
                     const responseDataForCloudID = await responseForCloudID.json();
                     const CLOUD_ID = await responseDataForCloudID.id;
-                    const UPLOADURL = "http://localhost:3000/multipart-upload";
-                    const CHUNKSIZE = 1024 * 1024 / 2; 
+                    const UPLOADURL = "multipart-upload";
+                    const CHUNKSIZE = 1024 * 1024 / 2;
 
                     async function processChunk(part, of) {
                         if (part < of) {
@@ -115,7 +115,7 @@ function handleForm(event) {
                             formData.append("fileToUpload", originalFile.slice(offset, offset + CHUNKSIZE));
 
                             // send chunk
-                            let request = new Request(UPLOADURL, { 
+                            let request = new Request(UPLOADURL, {
                                 body: formData,
                                 method: "PUT",
                             });
@@ -125,7 +125,7 @@ function handleForm(event) {
                                         console.error("error");
                                     }
                                     return response.json();
-                                })   
+                                })
                                 .then((data) => {
                                     updateProgressStatus(part, of);
                                     console.log("Antwort vom Server:", data);
@@ -136,7 +136,7 @@ function handleForm(event) {
                                 })
                         }
                     }
-                    
+
                     // slice original file into chunks and send them one after another
                     let chunks = Math.ceil(originalFile.size / CHUNKSIZE, CHUNKSIZE);
                     let chunk = 0;
@@ -144,13 +144,34 @@ function handleForm(event) {
                         // send post request for upload-completion after processing all chunks
                         .then(() => {
                             console.log("Beginne mit Abschluss des Uploads");
-                            let requestForCompleting = new Request("http://localhost:3000/multipart-upload/complete-upload", {
+                            let requestForCompleting = new Request("multipart-upload/complete-upload", {
                                 body: new URLSearchParams("id=" + CLOUD_ID + "&" + "cloud_name=" + inputCloudname),
                                 method: "POST",
                             });
                             fetch(requestForCompleting)
                                 .then((response) => {
-                                    console.log(response.json());
+                                    console.log(response);
+                                    let requestForConverting = new Request('convertFile/' + CLOUD_ID, {
+                                        method: 'PATCH',
+                                    })
+                                    fetch(requestForConverting)
+                                        .then((response) => {
+                                            console.log(response);
+                                            let requestForSendingToS3 = new Request('sendToS3/' + CLOUD_ID, {
+                                                method: 'PATCH'
+                                            })
+                                            fetch(requestForSendingToS3)
+                                                .then((response) => {
+                                                    console.log(response);
+                                                    let requestToGenerateHTMLPage = new Request('generateHTMLPage/' + CLOUD_ID, {
+                                                        method: 'PATCH'
+                                                    })
+                                                    fetch(requestToGenerateHTMLPage)
+                                                        .then((response) => {
+                                                            console.log(response);
+                                                        })
+                                                })
+                                        })
                                 })
                         });
                 })

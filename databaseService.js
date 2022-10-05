@@ -246,11 +246,7 @@ async function authenticateAction(username, cloudName, callback) {
             'cloud_table.created_by = user_table.user_name ' +
             'WHERE user_table.user_name = ? ' +
             'AND cloud_table.cloud_name = ?;', [username, cloudName]);
-            if (error || !result || result.length == 0) {
-                callback(false);
-            } else {
-                callback(true);
-            }
+            callback(!result || result.length == 0);
         });
     } catch (err) {
         console.error(err);
@@ -320,6 +316,19 @@ async function getNextUploadIDByUser(username, password, callback) {
     }
 }
 
+async function updateLink(link, username, pointcloudId, callback) {
+    try {
+        const db = makeDb();
+        await withTransaction(db, async () => {
+            const updatedRows = await db.query('UPDATE cloud_table SET link = ? WHERE id = ? AND created_by = ?;', [link, pointcloudId, username]);
+            callback(null, updatedRows);
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
+    }
+}
+
 // TODO write function to store new pointcloud
 module.exports = {
     publicClouds,
@@ -334,5 +343,6 @@ module.exports = {
     getPointcloudEntryByCloudnameAndUsername,
     authenticateAction,
     authenticateUser,
-    deleteCloud
+    deleteCloud,
+    updateLink
 };
