@@ -26,9 +26,11 @@ block content
         each cloud in clouds
           if cloud.public
             - var functionCall = "deletePointCloud('"+cloud.cloud_name+"')";
+            - var link = cloud.link
             tr
               td #{cloud.cloud_name} 
-              td #{cloud.link}
+              td 
+                a(href=link) #{cloud.link}
               td#deleteB 
                 button.btn.btn-primary.btn-dark.point-cloud-button(onclick=functionCall) Delete
     .row
@@ -45,11 +47,14 @@ block content
           table.table.table-dark.table-bordered.table-hover#mycloud
             each cloud in clouds  
                 if !cloud.public
+                 - var functionCall = "deletePointCloud('"+cloud.cloud_name+"')";
+                 - var link = cloud.link
                   tr
                     td #{cloud.cloud_name} 
-                    td #{cloud.link}
+                    td
+                      a(href=link) #{cloud.link}
                     td#deleteB 
-                      button.btn.btn-primary.btn-dark.point-cloud-button(class = 'deletionButton' onclick="deletePointCloud([cloud.cloud_name])") Delete
+                      button.btn.btn-primary.btn-dark.point-cloud-button(onclick=functionCall) Delete
       else
         .uploadedClouds
           h3.text-white Login to see your uploaded clouds
