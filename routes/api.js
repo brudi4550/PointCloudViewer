@@ -4,9 +4,8 @@ const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const fs = require('fs-extra');
 const path = require('path');
 const multer = require('multer');
-const { S3Client } = require('@aws-sdk/client-s3');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
-const axios = require('axios');
 const s3 = new S3Client({
     region: process.env.REGION,
     credentials: {
@@ -23,7 +22,18 @@ const UPLOAD_STATUS_ENUM = {
     ON_UPDATE: 'ON_UPDATE'
 }
 
-function s3multipartUpload(localPath, s3path, contentType) {
+function deleteFileFromS3(s3path) {
+    (async () => {
+        const command = new DeleteObjectCommand({
+            Bucket: 'point-clouds',
+            Key: s3path
+        })
+        console.log('deleting ' + s3path + ' from bucket');
+        const response = await s3.send(command);
+    })();
+}
+
+function s3multipartUpload(localPath, s3path, contentType, callback) {
     var fileStream = fs.createReadStream(localPath);
     (async () => {
         const parallelUploads3 = new Upload({
@@ -44,7 +54,20 @@ function s3multipartUpload(localPath, s3path, contentType) {
         });
 
         await parallelUploads3.done();
+        console.log('uploaded ' + s3path + ' to bucket');
+        if (callback) {
+            callback();
+        }
     })();
+}
+
+function cleanUpFiles(userId, pointcloudId) {
+    const uId = userId.toString();
+    const pId = pointcloudId.toString();
+    console.log('Upload to S3 completed, deleting all pointcloud files from server');
+    fs.rmSync(path.join(__dirname, '..', 'las', uId), { recursive: true, force: true });
+    fs.rmSync(path.join(__dirname, '..', 'potree_output', uId), { recursive: true, force: true });
+    fs.rmSync(path.join(__dirname, '..', 'potree_pages', uId), { recursive: true, force: true });
 }
 
 function getHTTPAuthInfo(req) {
@@ -159,7 +182,9 @@ module.exports = function (app) {
                     const s3path = 'potree_pointclouds' + suffix;
                     s3multipartUpload(localPath + 'hierarchy.bin', s3path + 'hierarchy.bin', 'application/octet-stream');
                     s3multipartUpload(localPath + 'metadata.json', s3path + 'metadata.json', 'application/json');
-                    s3multipartUpload(localPath + 'octree.bin', s3path + 'octree.bin', 'application/octet-stream');
+                    s3multipartUpload(localPath + 'octree.bin', s3path + 'octree.bin', 'application/octet-stream', () => {
+                        cleanUpFiles(userId, pointcloudId);
+                    });
                     res.status(200).send('sent to s3');
                 });
             } else {
@@ -271,7 +296,16 @@ module.exports = function (app) {
                         }
                     }
                 }
-                dbService.deleteCloud(pointcloudName, user, databaseCallback);
+                dbService.getUserIdByName(user, (err, userId) => {
+                    dbService.getPointcloudEntryByCloudnameAndUsername(pointcloudName, user, (err, result) => {
+                        const pointcloudId = result.id;
+                        deleteFileFromS3('pointcloud_pages/' + userId + '/' + pointcloudId + '.html');
+                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/hierarchy.bin');
+                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/metadata.json');
+                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/octree.bin');
+                        dbService.deleteCloud(pointcloudName, user, databaseCallback)
+                    });
+                });
             }
         }
         authenticate(req, callback);
