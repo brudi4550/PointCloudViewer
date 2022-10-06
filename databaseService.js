@@ -80,7 +80,7 @@ async function getPointcloudEntryByCloudnameAndUsername(cloudname, username, cal
     try {
         const db = makeDb();
         await withTransaction(db, async () => {
-            const result = await db.query('SELECT * FROM cloud_table WHERE cloud_name = ? AND created_by = ?', [cloudname, username]);
+            const result = await db.query('SELECT * FROM cloud_table WHERE cloud_name = ? AND created_by = ?;', [cloudname, username]);
             if (result.length == 1) {
                 callback(null, result[0]);
             } else {
@@ -221,7 +221,7 @@ async function authenticateUser(username, password, callback) {
         const db = makeDb();
         await withTransaction(db, async () => {
             const result = await db.query('SELECT salt, password_hash FROM user_table WHERE user_name = ?;', username);
-            if(!result && result.length == 0) {
+            if (!result && result.length == 0) {
                 callback(null, false);
             } else {
                 var passwordHash = crypto.pbkdf2Sync(password, result[0].salt, 1000, 64, `sha512`).toString(`hex`);
@@ -243,9 +243,9 @@ async function authenticateAction(username, cloudName, callback) {
         const db = makeDb();
         await withTransaction(db, async () => {
             const result = await db.query('SELECT cloud_name, user_name FROM cloud_table INNER JOIN user_table ON ' +
-            'cloud_table.created_by = user_table.user_name ' +
-            'WHERE user_table.user_name = ? ' +
-            'AND cloud_table.cloud_name = ?;', [username, cloudName]);
+                'cloud_table.created_by = user_table.user_name ' +
+                'WHERE user_table.user_name = ? ' +
+                'AND cloud_table.cloud_name = ?;', [username, cloudName]);
             callback(!result || result.length == 0);
         });
     } catch (err) {

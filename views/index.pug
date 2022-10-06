@@ -4,8 +4,9 @@ block content
     .btn-group(role='group' aria-label='Basic example')
       a(href='/upload') 
         button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
-      a(href='/login') 
-        button.btn.btn-primary.btn-dark.point-cloud-button Login
+      if !validSession
+        a(href='/login') 
+          button.btn.btn-primary.btn-dark.point-cloud-button Login
       if validSession
         a(href='/logout') 
           button.btn.btn-primary.btn.btn-dark.point-cloud-button Logout
