@@ -1,5 +1,5 @@
 const dbService = require('../databaseService');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const fs = require('fs-extra');
 const path = require('path');
@@ -150,19 +150,19 @@ module.exports = function (app) {
                 const username = getUsername(req);
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
-                    exec('./PotreeConverter/build/PotreeConverter ./las/' + userId + '/' + pointcloudId + '/' + pointcloudId
-                        + '.las -o ./potree_output/' + userId + '/' + pointcloudId, (error, stdout, stderr) => {
-                            if (error) {
-                                console.log(`error: ${error.message}`);
-                                return;
-                            }
-                            if (stderr) {
-                                console.log(`stderr: ${stderr}`);
-                                return;
-                            }
-                            console.log(`stdout: ${stdout}`);
-                            res.status(200).send('converting has started');
-                        });
+                    const convertCmd = spawn('./PotreeConverter/build/PotreeConverter',
+                        [
+                            './las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
+                            '-o',
+                            './potree_output/' + userId + '/' + pointcloudId
+                        ])
+                    convertCmd.stdout.setEncoding('utf8');
+                    convertCmd.stdout.on('data', (data) => {
+                        console.log(data);
+                    });
+                    convertCmd.on('close', (code) => {
+                        res.status(200).send('converting has finished');
+                    })
                 })
             } else {
                 res.send('authentication has not been successful');

@@ -40,6 +40,9 @@ function handleForm(event) {
         let progressInformation = document.getElementById("progressInformation");
         progressBar.style.backgroundSize = ((part + 1) * 100 / of) + "% 100%";
         progressInformation.innerHTML = part + 1 + " of " + of;
+        if (part + 1 == of) {
+            document.getElementById("uploadComplete").hidden = false;
+        }
     }
 
     // begin of function handleForm
