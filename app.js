@@ -1,5 +1,6 @@
 const express = require('express');
 const sessions = require('express-session');
+const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
 const app = express();
 const path = require('path');
 const fs = require('fs-extra');
@@ -9,8 +10,10 @@ const cookieParser = require("cookie-parser");
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'pug');
+app.set('views', __dirname + '/views');
 app.use(express.static(__dirname + '/public'));
 app.use(cookieParser());
+global.__basedir = __dirname;
 
 const oneHour = 1000 * 60 * 60;
 app.use(sessions({
