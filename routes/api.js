@@ -1,6 +1,5 @@
 const dbService = require('../databaseService');
-const { exec, spawn } = require('child_process');
-const dotenv = require('dotenv').config({ path: __dirname + '/.env' })
+const { spawn } = require('child_process');
 const fs = require('fs-extra');
 const path = require('path');
 const multer = require('multer');
@@ -63,11 +62,10 @@ function s3multipartUpload(localPath, s3path, contentType, callback) {
 
 function cleanUpFiles(userId, pointcloudId) {
     const uId = userId.toString();
-    const pId = pointcloudId.toString();
     console.log('Upload to S3 completed, deleting all pointcloud files from server');
-    fs.rmSync(path.join(__dirname, '..', 'las', uId), { recursive: true, force: true });
-    fs.rmSync(path.join(__dirname, '..', 'potree_output', uId), { recursive: true, force: true });
-    fs.rmSync(path.join(__dirname, '..', 'potree_pages', uId), { recursive: true, force: true });
+    fs.rmSync(path.join(__basedir, 'las', uId), { recursive: true, force: true });
+    fs.rmSync(path.join(__basedir, 'potree_output', uId), { recursive: true, force: true });
+    fs.rmSync(path.join(__basedir, 'potree_pages', uId), { recursive: true, force: true });
 }
 
 function getHTTPAuthInfo(req) {
@@ -150,11 +148,11 @@ module.exports = function (app) {
                 const username = getUsername(req);
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
-                    const convertCmd = spawn('./PotreeConverter/build/PotreeConverter',
+                    const convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
                         [
-                            './las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
+                            __basedir + '/las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
                             '-o',
-                            './potree_output/' + userId + '/' + pointcloudId
+                            __basedir + '/potree_output/' + userId + '/' + pointcloudId
                         ])
                     convertCmd.stdout.setEncoding('utf8');
                     convertCmd.stdout.on('data', (data) => {
@@ -178,7 +176,7 @@ module.exports = function (app) {
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
                     const suffix = '/' + userId + '/' + pointcloudId + '/';
-                    const localPath = './potree_output' + suffix;
+                    const localPath = __basedir + '/potree_output' + suffix;
                     const s3path = 'potree_pointclouds' + suffix;
                     s3multipartUpload(localPath + 'hierarchy.bin', s3path + 'hierarchy.bin', 'application/octet-stream');
                     s3multipartUpload(localPath + 'metadata.json', s3path + 'metadata.json', 'application/json');
@@ -200,43 +198,23 @@ module.exports = function (app) {
                 const username = getUsername(req);
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
-                    const localPath = './potree_pages/' + userId + '/' + pointcloudId + '.html';
+                    const localPath = __basedir + '/potree_pages/' + userId + '/' + pointcloudId + '.html';
                     const s3path = 'pointcloud_pages/' + userId + '/' + pointcloudId + '.html';
-                    exec('mkdir ./potree_pages/' + userId, (error, stdout, stderr) => {
-                        if (error) {
-                            console.log(`error: ${error.message}`);
-                            return;
+                    fs.mkdirSync(__basedir + '/potree_pages/' + userId);
+                    fs.copyFileSync(__basedir + '/resources/template.html', './potree_pages/' + userId + '/' + pointcloudId + '.html');
+                    fs.readFile(localPath, 'utf8', function (err, data) {
+                        if (err) {
+                            return console.log(err);
                         }
-                        if (stderr) {
-                            console.log(`stderr: ${stderr}`);
-                            return;
-                        }
-                        console.log(`stdout: ${stdout}`);
+                        var result = data.replace(/USERNAME/g, userId).replace(/POINTCLOUD_NAME/g, pointcloudId);
+                        fs.writeFile(localPath, result, 'utf8', function (err) {
+                            if (err) return console.log(err);
+                            s3multipartUpload(localPath, s3path, 'text/html');
+                        });
                     });
-                    exec('cp ./resources/template.html ./potree_pages/' + userId + '/' + pointcloudId + '.html', (error, stdout, stderr) => {
-                        if (error) {
-                            console.log(`error: ${error.message}`);
-                            return;
-                        }
-                        if (stderr) {
-                            console.log(`stderr: ${stderr}`);
-                            return;
-                        }
-                        console.log(`stdout: ${stdout}`);
-                        fs.readFile(localPath, 'utf8', function (err, data) {
-                            if (err) {
-                                return console.log(err);
-                            }
-                            var result = data.replace(/USERNAME/g, userId).replace(/POINTCLOUD_NAME/g, pointcloudId);
-                            fs.writeFile(localPath, result, 'utf8', function (err) {
-                                if (err) return console.log(err);
-                                s3multipartUpload(localPath, s3path, 'text/html');
-                            });
-                        });
-                        dbService.updateLink('http://' + process.env.S3_BUCKET_BASE_URL + '/' + s3path, username, pointcloudId, (err, result) => {
-                            res.send('HTML page generated');
-                        });
-                    })
+                    dbService.updateLink('http://' + process.env.S3_BUCKET_BASE_URL + '/' + s3path, username, pointcloudId, (err, result) => {
+                        res.send('HTML page generated');
+                    });
                 });
             }
         }
