@@ -172,6 +172,7 @@ function handleForm(event) {
                                                 showOKButton(true);
                                                 return;
                                             }
+                                            showConvertingSuccessful();
                                             let requestForSendingToS3 = new Request('sendToS3/' + CLOUD_ID, {
                                                 method: 'PATCH'
                                             })
@@ -225,5 +226,9 @@ function handleForm(event) {
         if (part + 1 == of) {
             info.innerHTML = "las-file upload completed (" + info.innerHTML + ")";
         }
+    }
+    function showConvertingSuccessful() {
+        document.getElementById("convertingProgressInformation").innerHTML = "Successfully converted.";
+        document.getElementById("convertingProgressBar").style.backgroundSize = "100% 100%";
     }
 }  

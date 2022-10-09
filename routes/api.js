@@ -2,6 +2,7 @@ const dbService = require('../databaseService');
 const { spawn } = require('child_process');
 const fs = require('fs-extra');
 const path = require('path');
+const os = require('os');
 const multer = require('multer');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
@@ -143,30 +144,49 @@ function authenticate(req, callback) {
 module.exports = function (app) {
 
     app.patch('/convertFile/:pointcloudId', (req, res) => {
+        let responseAlreadySent = false; // without this, server would respond 2 times and app crashes
         function callback(validAuth) {
             if (validAuth) {
-                let error = false; // without this, server would respond 2 times and app crashes
                 const username = getUsername(req);
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
-                    const convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
+                    let convertCmd;
+                    if (os.type == "Windows_NT") {
+                        convertCmd = spawn('cd ' + path.join(__basedir, 'PotreeConverter_2.1_x64_windows') + 
+                            ' && PotreeConverter.exe ' +
+                            '\"' + path.join(__basedir, 'las', userId.toString(), pointcloudId, pointcloudId + '.las') + '\"' +
+                            ' && -o && ' + 
+                            path.join(__basedir, 'las', userId.toString(), pointcloudId),
+                            [], { shell: true });
+                    } else {
+                        convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
                         [
                             __basedir + '/las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
                             '-o',
                             __basedir + '/potree_output/' + userId + '/' + pointcloudId
                         ])
+                    }
                     convertCmd.stdout.setEncoding('utf8');
                     convertCmd.stdout.on('data', (data) => {
-                        console.log(data);
+                        let dataString = data.toString();
+                        if (dataString.indexOf("ERROR") != -1) {
+                            if (!responseAlreadySent) {
+                                responseAlreadySent = true;
+                                return res.status(500).send('converting has failed: ' + dataString.substring(dataString.indexOf("ERROR")));
+                            }
+                        }
+                        console.log(dataString);
                     });
                     convertCmd.on('close', (code) => {
-                        if (!error) {
+                        if (!responseAlreadySent) {
                             return res.status(200).send('converting has finished');
                         }
                     })
                     convertCmd.on('error', (code) => {
-                        error = true;
-                        return res.status(500).send('converting has failed');
+                        if (!responseAlreadySent) {
+                            responseAlreadySent = true;
+                            return res.status(500).send('converting has failed: ' + code.message);
+                        }
                     })
                 })
             } else {
