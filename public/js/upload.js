@@ -121,23 +121,18 @@ function handleForm(event) {
                                 method: "PUT",
                             });
                             await fetch(request)
-                                .then((response) => {
+                                .then(async (response) => {
                                     if (response.status != 200) {
-                                        // FIXME: denke, das hier ist fehlerhaft. fehler nachstellen mit bösem response != 200
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressInformation").innerHTML = "error while uploading: server status response = " + response.status;
                                         showUploadControlButtons(false);
                                         showOKButton(true);
                                         return;
+                                    } else {
+                                        updateUploadLasProgressStatus(part, of);
+                                        // after successfully sending the current chunk, process next chunk recursively
+                                        await processChunk(part + 1, of);
                                     }
-                                    return response.json();
-                                })
-                                .then((data) => {
-                                    updateUploadLasProgressStatus(part, of);
-                                })
-                                .then(async () => {
-                                    // after successfully sending the current chunk, process next chunk recursively
-                                    await processChunk(part + 1, of);
                                 })
                         }
                     }
@@ -177,6 +172,7 @@ function handleForm(event) {
                                                 showOKButton(true);
                                                 return;
                                             }
+                                            showConvertingSuccessful();
                                             let requestForSendingToS3 = new Request('sendToS3/' + CLOUD_ID, {
                                                 method: 'PATCH'
                                             })
@@ -199,7 +195,7 @@ function handleForm(event) {
                                                 })
                                         })
                                 })
-                        });
+                        })
                 })
         })
 
@@ -230,5 +226,9 @@ function handleForm(event) {
         if (part + 1 == of) {
             info.innerHTML = "las-file upload completed (" + info.innerHTML + ")";
         }
+    }
+    function showConvertingSuccessful() {
+        document.getElementById("convertingProgressInformation").innerHTML = "Successfully converted.";
+        document.getElementById("convertingProgressBar").style.backgroundSize = "100% 100%";
     }
 }  
