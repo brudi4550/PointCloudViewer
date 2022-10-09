@@ -13,9 +13,19 @@ h1, h3, p, textarea, a, button, #login{
   margin-bottom: 10pt;
 }
 
+#ihead {
+  font-size: 14pt;
+  font-weight: bold;
+  color:#888
+}
+
 th, td {
   width: 45%;
   vertical-align: middle;
+  word-wrap:break-word;
+}
+tr {
+  max-height: 75px;
 }
 
 #deleteB {
@@ -46,7 +56,7 @@ th, td {
 .scrollableTable {
   height: 300pt;
   overflow: auto;
-  --bs-gutter-x: 1.5rem;
+  --bs-gutter-x: 0;
   --bs-gutter-y: 0;
   display: flex;
   flex-wrap: wrap;
@@ -54,6 +64,7 @@ th, td {
   margin-right: calc(-.5 * var(--bs-gutter-x));
   margin-left: calc(-.5 * var(--bs-gutter-x));
 }
+
 
 .uploadedClouds {
   text-align: center;

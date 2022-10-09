@@ -2,19 +2,18 @@ extends base.pug
 block content
   .container
     .btn-group(role='group' aria-label='Basic example')
-      a(href='/upload') 
-        button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
+      
       if !validSession
         a(href='/login') 
           button.btn.btn-primary.btn-dark.point-cloud-button Login
       if validSession
         a(href='/logout') 
           button.btn.btn-primary.btn.btn-dark.point-cloud-button Logout
+        a(href='/upload') 
+          button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
       if !validSession
         a(href='/createNewUser') 
           button.btn.btn-primary.btn.btn-dark.point-cloud-button Create new User
-      a(href='/fileconvert')
-        button.btn.btn-primary.btn-dark.point-cloud-button Convert File
     .row
       h2.text-white Public Clouds
       input#searchPC(type='text' onkeyup='searchNamePublicCloud()' placeholder='Search for names...')
@@ -22,7 +21,6 @@ block content
         tr
           th Point cloud name
           th Link to point cloud
-          th#deleteB  Delete
         tr
         each cloud in clouds
           if cloud.public
@@ -32,8 +30,6 @@ block content
               td #{cloud.cloud_name} 
               td 
                 a(href=link) #{cloud.link}
-              td#deleteB 
-                button.btn.btn-primary.btn-dark.point-cloud-button(onclick=functionCall) Delete
     .row
       h2.text-white My Clouds
       if validSession
