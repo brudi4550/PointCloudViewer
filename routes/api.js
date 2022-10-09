@@ -145,6 +145,7 @@ module.exports = function (app) {
     app.patch('/convertFile/:pointcloudId', (req, res) => {
         function callback(validAuth) {
             if (validAuth) {
+                let error = false; // without this, server would respond 2 times and app crashes
                 const username = getUsername(req);
                 const pointcloudId = req.params['pointcloudId'];
                 dbService.getUserIdByName(username, (err, userId) => {
@@ -159,11 +160,17 @@ module.exports = function (app) {
                         console.log(data);
                     });
                     convertCmd.on('close', (code) => {
-                        res.status(200).send('converting has finished');
+                        if (!error) {
+                            return res.status(200).send('converting has finished');
+                        }
+                    })
+                    convertCmd.on('error', (code) => {
+                        error = true;
+                        return res.status(500).send('converting has failed');
                     })
                 })
             } else {
-                res.send('authentication has not been successful');
+                return res.send('authentication has not been successful');
             }
         }
         authenticate(req, callback);
@@ -406,18 +413,16 @@ module.exports = function (app) {
             if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
                 return response
                     .status(500)
-                    .json("Das Zusammensetzen der Upload-Teile hat nicht funktioniert.");
+                    .json("Putting the upload parts together failed.");
             }
             if (!deleteChunks(UPLOAD_FOLDER_PATH)) {
                 return response
                     .status(500)
-                    .json("Beim Löschen der einzelnen Upload-Teile ist ein Fehler aufgetreten.");
+                    .json("Successfully put the upload parts together, but an error occurred when deleting the upload parts.");
             }
             return response
                 .status(200)
-                .json("Multipart-Upload erfolgreich zusammengesetzt.");
-            // FIXME: set db completed status to true
-            // FIXME: delete local files
+                .json("Multipart upload successfully completed.");
         })
 
     });

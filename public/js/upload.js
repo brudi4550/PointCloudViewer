@@ -1,3 +1,9 @@
+let uploadState = {
+    paused: false,
+    partsSuccessfullyUploaded: 0,
+    totalParts: 0
+}
+
 /*============================================================================
     submit button not visible until file is a valid *.las-file
 ============================================================================*/
@@ -8,6 +14,7 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
         // mime type of las files not available, so it's only possible to check file type by filename
         if (!this.files[0].name.endsWith(".las")) {
             elemtentsAfterFileChosen.hidden = true;
+            
             alert("Please choose another file: only *.las files supported.");
             return;
         }
@@ -18,6 +25,22 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
         elemtentsAfterFileChosen.hidden = true;
     }
 })
+document.getElementById("uploadWindow-button-show").onclick = function() {
+
+}
+document.getElementById("uploadWindow-button-cancel").onclick = function() {
+    // TODO: Delete pointcloud entry and folders here
+    window.location.href = "/upload";
+}
+document.getElementById("uploadWindow-button-pause-resume").onclick = function() {
+    if (self.innerHTML == "Pause Upload") {
+        uploadState.paused = true;
+        self.innerHTML = "Resume Upload"
+    } else {
+        uploadState.paused = false;
+        self.innerHTML = "Pause Upload"
+    }
+}
 
 /*============================================================================
     listener validates and uploads the file to upload
@@ -25,73 +48,34 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
 ============================================================================*/
 document.getElementById("uploadForm").addEventListener("submit", handleForm);
 function handleForm(event) {
-
-    // helper functions
-    // ============================================================================
-    function showProgressBar(boolean) {
-        document.getElementById("uploadProgress").hidden = !boolean;
-    }
-    function showFileChooserAndSubmitButton(boolean) {
-        document.getElementById("fileToUpload").hidden = !boolean;
-        document.getElementById("uploadSubmitButton").hidden = !boolean;
-    }
-    function updateProgressStatus(part, of) {
-        let progressBar = document.getElementById("progressBar");
-        let progressInformation = document.getElementById("progressInformation");
-        progressBar.style.backgroundSize = ((part + 1) * 100 / of) + "% 100%";
-        progressInformation.innerHTML = part + 1 + " of " + of;
-        if (part + 1 == of) {
-            document.getElementById("uploadComplete").hidden = false;
-        }
-    }
-
-    // begin of function handleForm
-    //============================================================================
     event.preventDefault();
-
-    // FIXME: Geplantes Vorgehen:
-    // 1. GET http://localhost:3000/user/{user_name}/pointcloud/{cloud_name}
-    // bei existierendem Eintrag Nachricht ausgeben:
-    //   "Der Name dieser Punktwolke existiert bereits. Möchten Sie diese Punktwolke ersetzen?"
-    //   Bei ja: weitermachen, bei nein: abbrechen oder anderen Namen eingeben
-    //   Wenn bereits ein Upload im Gange ist (bei upload_status != COMPLETED), User darüber in Kenntnis setzen.
-    //      unkompliziert: "warten Sie, bis der Upload abgeschlossen ist"
-    //   "Der Name dieser Punktwolke existiert bereits. Bitte löschen Sie diese zuerst, oder geben Sie einen anderen Namen an."
-    //   
-    // 2. PUT http://localhost:3000/multipart_upload/start_upload
-    //    falls files bereits bestehen am server (las, konvertiert), werden diese gelöscht,
-    //    neue(r) ordner werden angelegt für den bevorstehenden upload
-    /*    body = cloud_table {
-            "id": 0,
-            "cloud_name": 0,
-            "created_by": 0,
-            }                       */
-    // 3. PUT http://localhost:3000/multipart_upload
-    //       wie gehabt
-    // 4. POST http://localhost:3000/multipart_upload/complete_upload
-
-    let uploadForm = event.target;
 
     let originalFile = document.getElementById("fileToUpload").files[0];
     document.getElementById("inputCloudname").disabled = true;
     let inputCloudname = document.getElementById("inputCloudname").value;
 
+    // see if pointcloud entry exists already
     let getRequest = new Request("pointcloud/" + inputCloudname, {
         method: "GET",
     });
     fetch(getRequest)
         .then(getResponse => getResponse.json())
         .then(async cloud_obj => {
+            // if entry exists, ask user to override
             if (Object.entries(cloud_obj).length != 0) {
-                alert("The name of this point cloud already exists. Please delete the point cloud first or enter another name.");
-                showFileChooserAndSubmitButton(true);
-                showProgressBar(false);
-                document.getElementById("inputCloudname").disabled = false;
-                return;
+                let override = window.confirm("The name of this point cloud already exists. Would you like to override it?");
+                if (!override) {
+                    showFileChooserAndSubmitButton(true);
+                    showProgress(false);
+                    document.getElementById("inputCloudname").disabled = false;
+                    return;
+                }
             }
             showFileChooserAndSubmitButton(false);
-            showProgressBar(true);
+            showUploadControlButtons(true);
+            showProgress(true);
 
+            // start multipart-upload
             let startRequest = new Request("multipart-upload/start-upload", {
                 body: new URLSearchParams("cloud_name=" + inputCloudname),
                 method: "PUT",
@@ -105,6 +89,8 @@ function handleForm(event) {
                     const UPLOADURL = "multipart-upload";
                     const CHUNKSIZE = 1024 * 1024 / 2;
 
+                    // recursive upload-function
+                    // ============================================================================
                     async function processChunk(part, of) {
                         if (part < of) {
                             let offset = part * CHUNKSIZE;
@@ -125,13 +111,17 @@ function handleForm(event) {
                             await fetch(request)
                                 .then((response) => {
                                     if (response.status != 200) {
-                                        console.error("error");
+                                        document.getElementById("uploadLasProgressBar").className = "errorBar";
+                                        document.getElementById("uploadLasProgressInformation").innerHTML = "error while uploading: server status response = " + response.status;
+                                        showUploadControlButtons(false);
+                                        showOKButton(true);
+                                        return;
                                     }
                                     return response.json();
                                 })
                                 .then((data) => {
-                                    updateProgressStatus(part, of);
-                                    console.log("Antwort vom Server:", data);
+                                    updateUploadLasProgressStatus(part, of);
+                                    console.log("response from server: ", data);
                                 })
                                 .then(async () => {
                                     // after successfully sending the current chunk, process next chunk recursively
@@ -144,9 +134,10 @@ function handleForm(event) {
                     let chunks = Math.ceil(originalFile.size / CHUNKSIZE, CHUNKSIZE);
                     let chunk = 0;
                     await processChunk(chunk, chunks)
-                        // send post request for upload-completion after processing all chunks
+                        // all parts processed at this point
+                        // finish multipart-upload
                         .then(() => {
-                            console.log("Beginne mit Abschluss des Uploads");
+                            console.log("Start with completion of the upload");
                             let requestForCompleting = new Request("multipart-upload/complete-upload", {
                                 body: new URLSearchParams("id=" + CLOUD_ID + "&" + "cloud_name=" + inputCloudname),
                                 method: "POST",
@@ -154,18 +145,38 @@ function handleForm(event) {
                             fetch(requestForCompleting)
                                 .then((response) => {
                                     console.log(response);
+                                    if (response.status != 200) {
+                                        document.getElementById("uploadLasProgressBar").className = "errorBar";
+                                        document.getElementById("uploadLasProgressBar").innerHTML = "error while uploading: server status response = " + response.status;
+                                        showUploadControlButtons(false);
+                                        showOKButton(true);
+                                    }
                                     let requestForConverting = new Request('convertFile/' + CLOUD_ID, {
                                         method: 'PATCH',
                                     })
+                                    // TODO: progress-bar animation
                                     fetch(requestForConverting)
                                         .then((response) => {
+                                            showUploadControlButtons(false);
                                             console.log(response);
+                                            if (response.status != 200) {
+                                                document.getElementById("convertingProgressBar").className = "errorBar";
+                                                document.getElementById("convertingProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
+                                                showOKButton(true);
+                                                return;
+                                            }
                                             let requestForSendingToS3 = new Request('sendToS3/' + CLOUD_ID, {
                                                 method: 'PATCH'
                                             })
                                             fetch(requestForSendingToS3)
                                                 .then((response) => {
                                                     console.log(response);
+                                                    if (response.status != 200) {
+                                                        document.getElementById("uploadToS3ProgressBar").className = "errorBar";
+                                                        document.getElementById("uploadToS3ProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
+                                                        showOKButton(true);
+                                                        return;
+                                                    }
                                                     let requestToGenerateHTMLPage = new Request('generateHTMLPage/' + CLOUD_ID, {
                                                         method: 'PATCH'
                                                     })
@@ -179,4 +190,32 @@ function handleForm(event) {
                         });
                 })
         })
+
+    // other helper functions
+    // ============================================================================
+    function showProgress(boolean) {
+        document.getElementById("progress").hidden = !boolean;
+    }
+    function showFileChooserAndSubmitButton(boolean) {
+        document.getElementById("fileToUpload").hidden = !boolean;
+        document.getElementById("uploadSubmitButton").hidden = !boolean;
+    }
+    function showUploadControlButtons(boolean) {
+        document.getElementById("uploadWindow-button-cancel").hidden = !boolean;
+        document.getElementById("uploadWindow-button-pause-resume").hidden = !boolean;
+    }
+    function showOKButton(boolean) {
+        document.getElementById("uploadWindow-button-ok").hidden = !boolean;
+    }
+    function showShowPointcloudButton(boolean) {
+        document.getElementById("uploadWindow-button-show").hidden = !boolean;
+    }
+    function updateUploadLasProgressStatus(part, of) {
+        let info = document.getElementById("uploadLasProgressInformation");
+        document.getElementById("uploadLasProgressBar").style.backgroundSize = ((part + 1) * 100 / of) + "% 100%";
+        info.innerHTML = part + 1 + " of " + of;
+        if (part + 1 == of) {
+            info.innerHTML = "las-file upload completed (" + info.innerHTML + ")";
+        }
+    }
 }  
