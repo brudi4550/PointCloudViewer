@@ -12,13 +12,17 @@ block content
         br
         input.form-control(type='text' id='inputCloudname')
         br
-        input.btn.btn-dark.point-cloud-button(type='submit' value='Submit' id='uploadSubmitButton')
+        input.btn.btn-dark.point-cloud-button(type='submit' value='Submit' id='uploadSubmitButton' style='margin-left:0pt;')
+    a(href='/') 
+      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back
     div(id='uploadProgress' hidden)
       label#login Upload-progress:
         div(id='progressBarHolder')
           div(id='progressBar')
             div(id='progressInformation')
-      div(id='uploadComplete' hidden) File upload completed. Starting to convert to Potree format.
+      div(id='uploadComplete' hidden) 
+        p.text-white File upload completed. Starting to convert to Potree format.
     div(id='convertingProgress' hidden)
         div(id='convertingProgess')
+          p.text-white Converting completed, please go back to the main page to see your point cloud
   script(src="js/upload.js")
