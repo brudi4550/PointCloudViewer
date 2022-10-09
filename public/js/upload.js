@@ -1,12 +1,11 @@
-let uploadState = {
-    paused: false,
-    partsSuccessfullyUploaded: 0,
-    totalParts: 0
-}
+let paused;
 
-/*============================================================================
-    submit button not visible until file is a valid *.las-file
-============================================================================*/
+// pause and resume button should have same size
+document.getElementById("uploadWindow-button-resume").style.width = "165px";
+document.getElementById("uploadWindow-button-pause").style.width = "165px";
+
+// submit button not visible until file is a valid *.las-file
+// ============================================================================
 document.getElementById("fileToUpload").addEventListener("change", function () {
     let elemtentsAfterFileChosen = document.getElementById("elemtentsAfterFileChosen");
     let inputCloudname = document.getElementById("inputCloudname");
@@ -14,7 +13,6 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
         // mime type of las files not available, so it's only possible to check file type by filename
         if (!this.files[0].name.endsWith(".las")) {
             elemtentsAfterFileChosen.hidden = true;
-            
             alert("Please choose another file: only *.las files supported.");
             return;
         }
@@ -25,31 +23,35 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
         elemtentsAfterFileChosen.hidden = true;
     }
 })
+
+// show pointcloud if successfully uploaded
+// ============================================================================
 document.getElementById("uploadWindow-button-show").onclick = function() {
 
 }
+
+// cancel upload: delete database entry and files, renew upload page
+// ============================================================================
 document.getElementById("uploadWindow-button-cancel").onclick = function() {
     // TODO: Delete pointcloud entry and folders here
     window.location.href = "/upload";
 }
-document.getElementById("uploadWindow-button-pause-resume").onclick = function() {
-    if (self.innerHTML == "Pause Upload") {
-        uploadState.paused = true;
-        self.innerHTML = "Resume Upload"
-    } else {
-        uploadState.paused = false;
-        self.innerHTML = "Pause Upload"
-    }
+
+// upload is paused
+// ============================================================================
+document.getElementById("uploadWindow-button-pause").onclick = function() {
+    paused = true;
+    document.getElementById("uploadWindow-button-pause").hidden = true;
+    document.getElementById("uploadWindow-button-resume").hidden = false;
 }
 
 /*============================================================================
-    listener validates and uploads the file to upload
-    after the submit button is pressed
+    listener validates and uploads the file after the submit button is pressed
 ============================================================================*/
 document.getElementById("uploadForm").addEventListener("submit", handleForm);
 function handleForm(event) {
     event.preventDefault();
-
+    paused = false;
     let originalFile = document.getElementById("fileToUpload").files[0];
     document.getElementById("inputCloudname").disabled = true;
     let inputCloudname = document.getElementById("inputCloudname").value;
@@ -93,8 +95,18 @@ function handleForm(event) {
                     // ============================================================================
                     async function processChunk(part, of) {
                         if (part < of) {
+                            if (paused) {
+                                // wait for click on "resume upload"
+                                await new Promise(resolve => {
+                                    document.getElementById('uploadWindow-button-resume').addEventListener('click', e => {
+                                        paused = false;
+                                        document.getElementById("uploadWindow-button-resume").hidden = true;
+                                        document.getElementById("uploadWindow-button-pause").hidden = false;
+                                      resolve(e);
+                                    });
+                                })
+                            }
                             let offset = part * CHUNKSIZE;
-                            console.log("Verarbeite Part " + (part + 1).toString() + " von " + of.toString());
 
                             // prepare formdata
                             let formData = new FormData();
@@ -111,6 +123,7 @@ function handleForm(event) {
                             await fetch(request)
                                 .then((response) => {
                                     if (response.status != 200) {
+                                        // FIXME: denke, das hier ist fehlerhaft. fehler nachstellen mit bösem response != 200
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressInformation").innerHTML = "error while uploading: server status response = " + response.status;
                                         showUploadControlButtons(false);
@@ -121,7 +134,6 @@ function handleForm(event) {
                                 })
                                 .then((data) => {
                                     updateUploadLasProgressStatus(part, of);
-                                    console.log("response from server: ", data);
                                 })
                                 .then(async () => {
                                     // after successfully sending the current chunk, process next chunk recursively
@@ -134,9 +146,10 @@ function handleForm(event) {
                     let chunks = Math.ceil(originalFile.size / CHUNKSIZE, CHUNKSIZE);
                     let chunk = 0;
                     await processChunk(chunk, chunks)
-                        // all parts processed at this point
+                        // all chunks already processed at this point because processChunk is recursive
                         // finish multipart-upload
-                        .then(() => {
+                        .then(async () => {
+                            showUploadControlButtons(false);
                             console.log("Start with completion of the upload");
                             let requestForCompleting = new Request("multipart-upload/complete-upload", {
                                 body: new URLSearchParams("id=" + CLOUD_ID + "&" + "cloud_name=" + inputCloudname),
@@ -148,7 +161,6 @@ function handleForm(event) {
                                     if (response.status != 200) {
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressBar").innerHTML = "error while uploading: server status response = " + response.status;
-                                        showUploadControlButtons(false);
                                         showOKButton(true);
                                     }
                                     let requestForConverting = new Request('convertFile/' + CLOUD_ID, {
@@ -202,7 +214,8 @@ function handleForm(event) {
     }
     function showUploadControlButtons(boolean) {
         document.getElementById("uploadWindow-button-cancel").hidden = !boolean;
-        document.getElementById("uploadWindow-button-pause-resume").hidden = !boolean;
+        document.getElementById("uploadWindow-button-pause").hidden = !boolean;
+        document.getElementById("uploadWindow-button-resume").hidden = true;
     }
     function showOKButton(boolean) {
         document.getElementById("uploadWindow-button-ok").hidden = !boolean;
