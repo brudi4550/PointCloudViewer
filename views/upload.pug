@@ -12,17 +12,44 @@ block content
         br
         input.form-control(type='text' id='inputCloudname')
         br
-        input.btn.btn-dark.point-cloud-button(type='submit' value='Submit' id='uploadSubmitButton' style='margin-left:0pt;')
-    a(href='/') 
-      button.btn.btn-dark.point-cloud-button(style='margin-left:0pt;') Back
-    div(id='uploadProgress' hidden)
-      label#login Upload-progress:
-        div(id='progressBarHolder')
-          div(id='progressBar')
-            div(id='progressInformation')
-      div(id='uploadComplete' hidden) 
-        p.text-white File upload completed. Starting to convert to Potree format.
-    div(id='convertingProgress' hidden)
-        div(id='convertingProgess')
-          p.text-white Converting completed, please go back to the main page to see your point cloud
+        input.btn.btn-dark.point-cloud-button(type='submit' value='Submit' id='uploadSubmitButton')
+
+    // buttons
+    div(style="display: flex; justify-content: center; align-items: center;")
+      a(href='/') 
+        button.btn.btn-primary.btn-dark.point-cloud-button Back
+      a(href='/upload')
+        button.btn.btn-primary.btn-dark.point-cloud-button(id="uploadWindow-button-ok" hidden) OK
+      button.btn.btn-primary.btn-dark.point-cloud-button(id="uploadWindow-button-show" hidden) Show Pointcloud
+      button.btn.btn-primary.btn-dark.point-cloud-button(id="uploadWindow-button-cancel" hidden) Cancel Upload
+      button.btn.btn-primary.btn-dark.point-cloud-button(id="uploadWindow-button-pause-resume" hidden) Pause Upload
+
+    // progress information about the upload
+    div(id='progress' hidden)
+
+      // upload .las to server
+      div(id='uploadLasProgress')
+        label#login Upload-progress (las-file to server):
+        div(id='uploadLasProgressBarHolder' class='progressBarHolder')
+          div(id='uploadLasProgressBar' class='progressBar')
+            div(id='uploadLasProgressInformation' class='progressInformation')
+        div(id='uploadComplete' hidden) 
+          p.text-white File upload completed. Starting to convert to Potree format.
+        br
+
+      // converting .las to other format
+      div(id='convertingProgress')
+        label#login Converting-progress:
+        div(id='convertingProgessBarHolder' class='progressBarHolder')
+          div(id='convertingProgressBar' class='progressBar')
+            div(id='convertingProgressInformation' class='progressInformation')
+        br
+
+      // uploading other format to s3
+      div(id='uploadToS3Progress')
+        label#login Upload-progress (converted file to Amazon S3):
+        div(id='uploadToS3ProgessBarHolder' class='progressBarHolder')
+          div(id='uploadToS3ProgressBar' class='progressBar')
+            div(id='uploadToS3rogressInformation' class='progressInformation')
+
   script(src="js/upload.js")
