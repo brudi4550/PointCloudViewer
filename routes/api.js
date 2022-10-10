@@ -152,11 +152,11 @@ module.exports = function (app) {
                 dbService.getUserIdByName(username, (err, userId) => {
                     let convertCmd;
                     if (os.type == "Windows_NT") {
-                        convertCmd = spawn('cd ' + path.join(__basedir, 'PotreeConverter_2.1_x64_windows') +
+                        convertCmd = spawn('cd ' + path.join(__basedir, 'PotreeConverter') + 
                             ' && PotreeConverter.exe ' +
                             '\"' + path.join(__basedir, 'las', userId.toString(), pointcloudId, pointcloudId + '.las') + '\"' +
-                            ' && -o && ' +
-                            path.join(__basedir, 'las', userId.toString(), pointcloudId),
+                            '  -o  ' + 
+                            '\"' + path.join(__basedir, 'potree_output', userId.toString(), pointcloudId) + '\"',
                             [], { shell: true });
                     } else {
                         convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
@@ -172,7 +172,7 @@ module.exports = function (app) {
                         if (dataString.indexOf("ERROR") != -1) {
                             if (!responseAlreadySent) {
                                 responseAlreadySent = true;
-                                return res.status(500).send('converting has failed: ' + dataString.substring(dataString.indexOf("ERROR")));
+                                return res.status(500).send('converting has failed: ' + dataString);
                             }
                         }
                         console.log(dataString);
