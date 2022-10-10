@@ -26,20 +26,27 @@ document.getElementById("fileToUpload").addEventListener("change", function () {
 
 // show pointcloud if successfully uploaded
 // ============================================================================
-document.getElementById("uploadWindow-button-show").onclick = function() {
+document.getElementById("uploadWindow-button-show").onclick = function () {
 
 }
 
 // cancel upload: delete database entry and files, renew upload page
 // ============================================================================
-document.getElementById("uploadWindow-button-cancel").onclick = function() {
-    // TODO: Delete pointcloud entry and folders here
-    window.location.href = "/upload";
+document.getElementById("uploadWindow-button-cancel").onclick = function () {
+    console.log(inputCloudname);
+    let cancelProcess = new Request('/' + inputCloudname.value, {
+        method: "DELETE",
+    });
+    fetch(cancelProcess)
+        .then((response) => {
+            console.log(response);
+            window.location.href = "/upload";
+        });
 }
 
 // upload is paused
 // ============================================================================
-document.getElementById("uploadWindow-button-pause").onclick = function() {
+document.getElementById("uploadWindow-button-pause").onclick = function () {
     paused = true;
     document.getElementById("uploadWindow-button-pause").hidden = true;
     document.getElementById("uploadWindow-button-resume").hidden = false;
@@ -102,7 +109,7 @@ function handleForm(event) {
                                         paused = false;
                                         document.getElementById("uploadWindow-button-resume").hidden = true;
                                         document.getElementById("uploadWindow-button-pause").hidden = false;
-                                      resolve(e);
+                                        resolve(e);
                                     });
                                 })
                             }
@@ -185,12 +192,15 @@ function handleForm(event) {
                                                         showOKButton(true);
                                                         return;
                                                     }
+                                                    showSendingToS3Successful();
                                                     let requestToGenerateHTMLPage = new Request('generateHTMLPage/' + CLOUD_ID, {
                                                         method: 'PATCH'
                                                     })
                                                     fetch(requestToGenerateHTMLPage)
                                                         .then((response) => {
                                                             console.log(response);
+                                                            showGeneratingHTMLPageSuccessful();
+                                                            window.location.href = '/success/' + inputCloudname;
                                                         })
                                                 })
                                         })
@@ -231,4 +241,15 @@ function handleForm(event) {
         document.getElementById("convertingProgressInformation").innerHTML = "Successfully converted.";
         document.getElementById("convertingProgressBar").style.backgroundSize = "100% 100%";
     }
+
+    function showSendingToS3Successful() {
+        document.getElementById("uploadToS3ProgressInformation").innerHTML = "Successfully uploaded to S3.";
+        document.getElementById("uploadToS3ProgressBar").style.backgroundSize = "100% 100%";
+    }
+
+    function showGeneratingHTMLPageSuccessful() {
+        document.getElementById("generateHTMLPageProgressInformation").innerHTML = "Successfully uploaded HTML page to S3.";
+        document.getElementById("generateHTMLPageProgressBar").style.backgroundSize = "100% 100%";
+    }
+
 }  

@@ -81,6 +81,18 @@ app.get('/upload', (req, res) => {
   })
 })
 
+app.get('/success/:pointCloudname', async (req, res) => {
+  const username = req.session.userid;
+  dbService.getUserIdByName(username, (err, userId) => {
+    dbService.getPointcloudEntryByCloudnameAndUsername(req.params['pointCloudname'], username, (err, result) => {
+      res.render('successPage', {
+        title: 'Pointcloud Upload successful',
+        link: 'http://' + process.env.S3_BUCKET_BASE_URL + '/pointcloud_pages/' + userId + '/' + result.id + '.html'
+      })
+    })
+  })
+})
+
 app.listen(port, () => {
   console.log(`PointCloudViewer listening on port ${port}`)
 })

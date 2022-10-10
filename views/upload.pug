@@ -51,6 +51,16 @@ block content
         label#login Upload-progress (converted file to Amazon S3):
         div(id='uploadToS3ProgessBarHolder' class='progressBarHolder')
           div(id='uploadToS3ProgressBar' class='progressBar')
-            div(id='uploadToS3rogressInformation' class='progressInformation')
+            div(id='uploadToS3ProgressInformation' class='progressInformation')
+        br
 
+      div(id='generateHTMLPage')
+        label#login Generating and uploading HTML page to S3:
+        div(id='generateHTMLPageProgressBarHolder' class='progressBarHolder')
+          div(id='generateHTMLPageProgressBar' class='progressBar')
+            div(id='generateHTMLPageProgressInformation' class='progressInformation')
+        br
+
+      div(id='processComplete' hidden)
+        h3 Process now completed. You can now leave this page. View your pointcloud here.
   script(src="js/upload.js")

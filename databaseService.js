@@ -246,7 +246,7 @@ async function authenticateAction(username, cloudName, callback) {
                 'cloud_table.created_by = user_table.user_name ' +
                 'WHERE user_table.user_name = ? ' +
                 'AND cloud_table.cloud_name = ?;', [username, cloudName]);
-            callback(!result || result.length == 0);
+            callback(result || result.length != 0);
         });
     } catch (err) {
         console.error(err);
