@@ -44,9 +44,9 @@ function s3multipartUpload(localPath, s3path, contentType, callback) {
                 Key: s3path,
                 Body: fileStream
             },
-            queueSize: 4, // optional concurrency configuration
-            partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
-            leavePartsOnError: false, // optional manually handle dropped parts
+            queueSize: 4,
+            partSize: 1024 * 1024 * 5,
+            leavePartsOnError: false,
         });
 
         parallelUploads3.on("httpUploadProgress", (progress) => {
@@ -227,8 +227,11 @@ module.exports = function (app) {
                 dbService.getUserIdByName(username, (err, userId) => {
                     const localPath = __basedir + '/potree_pages/' + userId + '/' + pointcloudId + '.html';
                     const s3path = 'pointcloud_pages/' + userId + '/' + pointcloudId + '.html';
-                    fs.mkdirSync(__basedir + '/potree_pages/' + userId);
-                    fs.copyFileSync(__basedir + '/resources/template.html', './potree_pages/' + userId + '/' + pointcloudId + '.html');
+                    const userDir = __basedir + '/potree_pages/' + userId;
+                    if (!fs.existsSync(userDir)) {
+                        fs.mkdirSync(userDir);
+                    }
+                    fs.copyFileSync(__basedir + '/resources/template.html', __basedir + '/potree_pages/' + userId + '/' + pointcloudId + '.html');
                     fs.readFile(localPath, 'utf8', function (err, data) {
                         if (err) {
                             return console.log(err);
