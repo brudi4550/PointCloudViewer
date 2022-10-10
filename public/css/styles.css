@@ -195,6 +195,40 @@ tr {
   margin-right: auto;
 }
 
+@keyframes fadeEffect {
+  0%   { opacity: 0}
+  50% { opacity: 1}
+  100% {opacity: 0}
+}
+
+.animatedProgressBar {
+  height: 35px;
+  background-image: linear-gradient(#fff, #06d6a9);
+  background-repeat:no-repeat;
+  background-size: 100% 100%;
+  border: 1px solid #06d6a9;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-left: auto;
+  margin-right: auto;
+  animation-name: fadeEffect;
+  animation-duration:2s;
+  animation-iteration-count: infinite;
+  
+}
+
+.progressBar {
+  height: 35px;
+  background-image: linear-gradient(#fff, #06d6a9);
+  background-repeat:no-repeat;
+  background-size: 0% 100%;
+  border: 1px solid #06d6a9;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .progressBar {
   height: 35px;
   background-image: linear-gradient(#fff, #06d6a9);
@@ -228,6 +262,19 @@ tr {
   text-align: center;
   margin-left: auto;
   margin-right: auto;
+}
+
+.consoleOutput {
+  margin: 0px auto;
+  width: 400px;
+  font-family: 'Consolas';
+  background-image: linear-gradient(
+      rgb(0, 0, 0), rgb(0, 0, 0)
+   ); 
+  padding: 1ex;
+  font-size: 1em;
+  box-sizing: border-box;
+  color:rgb(187, 187, 187);
 }
 
 .fade-in-image {
