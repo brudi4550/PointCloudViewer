@@ -21,9 +21,9 @@ S3_BUCKET_BASE_URL=The base URL for the S3 Bucket the point clouds are hosted on
 ```
 After creating the file run the install.sh script.
 
-#User Manual
+# User Manual
 
-##Main Page
+## Main Page
 On the main page, a user who is not logged in sees only a table "Public Clouds" with the links to the 3D point clouds. 
 
     -- Screenshot public clouds -- 
@@ -32,15 +32,15 @@ In order to uploud own your own files or view the uploaded files, the user (if n
 
     -- Screenshot my clouds --
 
-##Create new user
+## Create new user
 The user can create a new account by filling in the two text fields "Username" and "Password" and then clicking the Submit button. 
     -- Screenshot create new user --
 
-##Login
+## Login
 Users can log in by providing their username and password that they entered during registration and clicking "Submit".
     -- Screenshot Login --
 
-##Upload Point Cloud
+## Upload Point Cloud
 On this page, users can uploud their LAS file, which should be illustrated. The file can be selected by cklicking the button "Datei auswählen". (If desited, after selecting the file name can be changed.) With a click on "Submit" the file will be uploaded and converted. 
 
     -- Screenhot selecting file --
