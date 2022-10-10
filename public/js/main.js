@@ -24,7 +24,7 @@ navbar_brand.addEventListener('click', () => {
 });
 
 function deletePointCloud(pointcloudName) {
-    console.log('pointcloud ' + pointcloudName)
+    console.log('delete request: pointcloud ' + pointcloudName)
     fetch('/'+pointcloudName, {
         method: "DELETE"
     })

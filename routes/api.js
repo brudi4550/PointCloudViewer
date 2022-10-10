@@ -44,9 +44,9 @@ function s3multipartUpload(localPath, s3path, contentType, callback) {
                 Key: s3path,
                 Body: fileStream
             },
-            queueSize: 4, // optional concurrency configuration
-            partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
-            leavePartsOnError: false, // optional manually handle dropped parts
+            queueSize: 4,
+            partSize: 1024 * 1024 * 5,
+            leavePartsOnError: false,
         });
 
         parallelUploads3.on("httpUploadProgress", (progress) => {
@@ -61,9 +61,9 @@ function s3multipartUpload(localPath, s3path, contentType, callback) {
     })();
 }
 
-function cleanUpFiles(userId, pointcloudId) {
+function cleanUpFiles(userId) {
     const uId = userId.toString();
-    console.log('Upload to S3 completed, deleting all pointcloud files from server');
+    console.log('deleting all pointcloud files of user ' + uId + ' from server.');
     fs.rmSync(path.join(__basedir, 'las', uId), { recursive: true, force: true });
     fs.rmSync(path.join(__basedir, 'potree_output', uId), { recursive: true, force: true });
     fs.rmSync(path.join(__basedir, 'potree_pages', uId), { recursive: true, force: true });
@@ -160,11 +160,11 @@ module.exports = function (app) {
                             [], { shell: true });
                     } else {
                         convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
-                        [
-                            __basedir + '/las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
-                            '-o',
-                            __basedir + '/potree_output/' + userId + '/' + pointcloudId
-                        ])
+                            [
+                                __basedir + '/las/' + userId + '/' + pointcloudId + '/' + pointcloudId + '.las',
+                                '-o',
+                                __basedir + '/potree_output/' + userId + '/' + pointcloudId
+                            ])
                     }
                     convertCmd.stdout.setEncoding('utf8');
                     convertCmd.stdout.on('data', (data) => {
@@ -208,9 +208,9 @@ module.exports = function (app) {
                     s3multipartUpload(localPath + 'hierarchy.bin', s3path + 'hierarchy.bin', 'application/octet-stream');
                     s3multipartUpload(localPath + 'metadata.json', s3path + 'metadata.json', 'application/json');
                     s3multipartUpload(localPath + 'octree.bin', s3path + 'octree.bin', 'application/octet-stream', () => {
-                        cleanUpFiles(userId, pointcloudId);
+                        cleanUpFiles(userId);
+                        res.status(200).send('sent to s3');
                     });
-                    res.status(200).send('sent to s3');
                 });
             } else {
                 res.send('authentication has not been successful');
@@ -227,8 +227,11 @@ module.exports = function (app) {
                 dbService.getUserIdByName(username, (err, userId) => {
                     const localPath = __basedir + '/potree_pages/' + userId + '/' + pointcloudId + '.html';
                     const s3path = 'pointcloud_pages/' + userId + '/' + pointcloudId + '.html';
-                    fs.mkdirSync(__basedir + '/potree_pages/' + userId);
-                    fs.copyFileSync(__basedir + '/resources/template.html', './potree_pages/' + userId + '/' + pointcloudId + '.html');
+                    const userDir = __basedir + '/potree_pages/' + userId;
+                    if (!fs.existsSync(userDir)) {
+                        fs.mkdirSync(userDir);
+                    }
+                    fs.copyFileSync(__basedir + '/resources/template.html', __basedir + '/potree_pages/' + userId + '/' + pointcloudId + '.html');
                     fs.readFile(localPath, 'utf8', function (err, data) {
                         if (err) {
                             return console.log(err);
@@ -276,41 +279,47 @@ module.exports = function (app) {
 
     app.delete('/:pointcloudName', (req, res) => {
         console.log('delete request : ' + req.params['pointcloudName']);
-        function callback() {
-            const pointcloudName = req.params['pointcloudName'];
-            const user = getUsername(req);
-            if (pointcloudName == undefined) {
-                res.status(400);
-                res.send('No pointcloudName could be found');
-            } else if (user == undefined) {
-                res.status(401);
-                res.send('No user was provided to perform the task')
-            } else {
-                function databaseCallback(error, result) {
-                    if (error) {
-                        console.log(error);
-                        res.status(400)
-                        res.send('Could not execute database query');
-                    } else {
-                        if (result.affectedRows >= 1) {
-                            res.status(200);
-                            res.send('The pointcloud has been deleted successfully');
+        function callback(valid) {
+            if (valid) {
+                const pointcloudName = req.params['pointcloudName'];
+                const user = getUsername(req);
+                if (pointcloudName == undefined) {
+                    res.status(400);
+                    res.send('No pointcloudName could be found');
+                } else if (user == undefined) {
+                    res.status(401);
+                    res.send('No user was provided to perform the task')
+                } else {
+                    function databaseCallback(error, result) {
+                        if (error) {
+                            console.log(error);
+                            res.status(400)
+                            res.send('Could not execute database query');
                         } else {
-                            res.status(200);
-                            res.send('The pointcloud was not found for this user');
+                            if (result.affectedRows >= 1) {
+                                res.status(200);
+                                res.send('The pointcloud has been deleted successfully');
+                            } else {
+                                res.status(200);
+                                res.send('The pointcloud was not found for this user');
+                            }
                         }
                     }
-                }
-                dbService.getUserIdByName(user, (err, userId) => {
-                    dbService.getPointcloudEntryByCloudnameAndUsername(pointcloudName, user, (err, result) => {
-                        const pointcloudId = result.id;
-                        deleteFileFromS3('pointcloud_pages/' + userId + '/' + pointcloudId + '.html');
-                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/hierarchy.bin');
-                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/metadata.json');
-                        deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/octree.bin');
-                        dbService.deleteCloud(pointcloudName, user, databaseCallback)
+                    dbService.getUserIdByName(user, (err, userId) => {
+                        dbService.getPointcloudEntryByCloudnameAndUsername(pointcloudName, user, (err, result) => {
+                            const pointcloudId = result.id;
+                            deleteFileFromS3('pointcloud_pages/' + userId + '/' + pointcloudId + '.html');
+                            deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/hierarchy.bin');
+                            deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/metadata.json');
+                            deleteFileFromS3('potree_pointclouds/' + userId + '/' + pointcloudId + '/octree.bin');
+                            cleanUpFiles(userId);
+                            dbService.deleteCloud(pointcloudName, user, databaseCallback);
+                        });
                     });
-                });
+                }
+            } else {
+                console.log('authentication has not been successful');
+                res.send('authentication has not been successful');
             }
         }
         authenticate(req, callback);
