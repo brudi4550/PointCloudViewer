@@ -26,7 +26,7 @@ After creating the file run the install.sh script.
 ## Main Page
 On the main page, a user who is not logged in sees only a table "Public Clouds" with the links to the 3D point clouds. 
 
-! [main page](https://github.com/brudi4550/PointCloudViewer.git/images_user_manual/main_page_public_clouds.png)
+! [main page!](/images_user_manual/main_page_public_clouds.png)
 
 In order to uploud own your own files or view the uploaded files, the user (if not already registered, must create an account) must log in. It is also possible to search for desired point clouds in the respective tables or delete the file that are not needed. 
 
