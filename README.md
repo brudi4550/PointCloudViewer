@@ -28,7 +28,7 @@ On the main page, a user who is not logged in sees only a table "Public Clouds" 
 
 ![main page1](/images_user_manual/main_page_public_clouds.png)
 
-In order to uploud own your own files or view the uploaded files, the user (if not already registered, must create an account) must log in. 
+In order to uploud own your own files or view the uploaded files, the user must log in. (If the user is not already registered, an acoount must be created)
 
 ![main page2](/images_user_manual/main_page_both_tables.png)
 
