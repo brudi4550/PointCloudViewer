@@ -146,6 +146,23 @@ async function privateClouds(username, callback) {
     }
 }
 
+async function onlyPrivateClouds(username, callback) {
+    try {
+        const db = makeDb();
+        let query = 'SELECT cloud_table.id cloud_id,  user_table.id user_id '+
+            'FROM cloud_table, user_table ' + 
+            'WHERE cloud_table.created_by = user_table.user_name ' + 
+            'and cloud_table.public = FALSE and cloud_table.created_by = ?;';
+        await withTransaction(db, async () => {
+            const result = await db.query(query, [username, "COMPLETED"]);
+            callback(null, result, true)
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
+    }
+}
+
 async function checkSession(username, callback) {
     try {
         if (username === undefined) {
@@ -270,6 +287,22 @@ async function deleteCloud(cloudName, username, callback) {
     }
 }
 
+async function deleteUser(username, callback) {
+    try {
+        if(username === undefined) {
+            throw err("No username was provided");
+        }
+        const db = makeDb();
+        await withTransaction(db, async () => {
+            const result = await db.query('DELETE FROM user_table WHERE user_name = ?;', [username]);
+            callback(null, result);
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
+    }
+}
+
 async function getUserEntryById(id, callback) {
     try {
         if (!(id instanceof number)) {
@@ -333,6 +366,7 @@ async function updateLink(link, username, pointcloudId, callback) {
 module.exports = {
     publicClouds,
     privateClouds,
+    onlyPrivateClouds,
     checkSession,
     setNewSession,
     createNewUser,
@@ -344,5 +378,6 @@ module.exports = {
     authenticateAction,
     authenticateUser,
     deleteCloud,
+    deleteUser,
     updateLink
 };
