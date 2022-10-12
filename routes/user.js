@@ -1,4 +1,23 @@
 const dbService = require('../databaseService');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const s3 = new S3Client({
+    region: process.env.REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
+
+function deleteFileFromS3(s3path) {
+    (async () => {
+        const command = new DeleteObjectCommand({
+            Bucket: 'point-clouds',
+            Key: s3path
+        })
+        console.log('deleting ' + s3path + ' from bucket');
+        const response = await s3.send(command);
+    })();
+}
 
 module.exports = function (app) {
 
@@ -74,6 +93,51 @@ module.exports = function (app) {
             }
         }
         dbService.createNewUser(req.body.username, req.body.password, callback);
+    })
+
+    app.get('/userDeletion', (req, res) => {
+        res.render('userDeletion.pug', {
+            complete: false
+        });
+    })
+
+    app.delete('/userDeletion', (req, res) => {
+        console.log('user gets deleted');
+        const username = req.session.userid;
+        function deleteUserCallback(error, result) {
+            console.log(error);
+            if(error) {
+                res.status(402);
+                res.send(error);
+            } else {
+                console.log('success');
+                req.session.destroy();
+                res.render('userDeletion.pug', {
+                    complete: true
+                })
+            }
+        }
+        function deleteUserCloudsFromBucket(error, result) {
+            if(result) {
+                result.forEach( pointcloud => {
+                    console.log(pointcloud.cloud_id)
+                    console.log(pointcloud.user_id)
+                    try {
+                        deleteFileFromS3('pointcloud_pages/' + pointcloud.user_id + '/' + pointcloud.cloud_id + '.html');
+                        deleteFileFromS3('potree_pointclouds/' + pointcloud.user_id + '/' + pointcloud.cloud_id + '/hierarchy.bin');
+                        deleteFileFromS3('potree_pointclouds/' + pointcloud.user_id + '/' + pointcloud.cloud_id + '/metadata.json');
+                        deleteFileFromS3('potree_pointclouds/' + pointcloud.user_id + '/' + pointcloud.cloud_id + '/octree.bin');
+                    } catch (error){}
+                })
+            }
+            dbService.deleteUser(username, deleteUserCallback);
+        }
+        function checkSessionCallback(error, result) {
+            if(!error && result) {
+                dbService.onlyPrivateClouds(username, deleteUserCloudsFromBucket);
+            }   
+        }
+        dbService.checkSession(username, checkSessionCallback);
     })
 
 }

@@ -11,6 +11,8 @@ block content
           button.btn.btn-primary.btn.btn-dark.point-cloud-button Logout
         a(href='/upload') 
           button.btn.btn-primary.btn-dark.point-cloud-button Upload Point Cloud
+        a(href='/userDeletion')
+          button.btn.btn-secondary.btn-dark.point-cloud-button Delete User
       if !validSession
         a(href='/createNewUser') 
           button.btn.btn-primary.btn.btn-dark.point-cloud-button Create new User
@@ -24,7 +26,6 @@ block content
         tr
         each cloud in clouds
           if cloud.public
-            - var functionCall = "deletePointCloud('"+cloud.cloud_name+"')";
             - var link = cloud.link
             tr
               td #{cloud.cloud_name} 
