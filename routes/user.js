@@ -40,7 +40,7 @@ module.exports = function (app) {
 
     app.post('/login', (req, res) => {
         var username = req.body.username;
-        var passwordHash = req.body.password;
+        var password = req.body.password;
 
         function callbackSetNewSession(error, result) {
             if (error) {
@@ -66,7 +66,7 @@ module.exports = function (app) {
             }
         }
 
-        dbService.authenticateUser(username, passwordHash, callbackLogin);
+        dbService.authenticateUser(username, password, callbackLogin);
     })
 
     // TODO check for special chars
