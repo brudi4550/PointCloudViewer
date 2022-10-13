@@ -16,6 +16,7 @@ PASSWORD=password for your database user
 PORT=Database port to be used (probably 3306)
 AWS_ACCESS_KEY_ID=access key id used for pushing point clouds to S3
 AWS_SECRET_ACCESS_KEY=secret access key used for pushing point clouds to S3
+REGION=The region you are using for your AWS account
 BASE_URL=The base URL of your project (depending on if in deployment or not)
 S3_BUCKET_BASE_URL=The base URL for the S3 Bucket the point clouds are hosted on
 ```
