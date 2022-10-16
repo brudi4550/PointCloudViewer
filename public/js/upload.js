@@ -129,7 +129,7 @@ function handleForm(event) {
                             });
                             await fetch(request)
                                 .then(async (response) => {
-                                    if (response.status != 200) {
+                                    if (!response.ok) {
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressInformation").innerHTML = "error while uploading: server status response = " + response.status;
                                         showUploadControlButtons(false);
@@ -160,7 +160,7 @@ function handleForm(event) {
                             fetch(requestForCompleting)
                                 .then((response) => {
                                     console.log(response);
-                                    if (response.status != 200) {
+                                    if (!response.ok) {
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressBar").innerHTML = "error while uploading: server status response = " + response.status;
                                         showOKButton(true);
@@ -174,7 +174,7 @@ function handleForm(event) {
                                         .then(async (response) => {
                                             showUploadControlButtons(false);
                                             console.log(response);
-                                            if (response.status != 200) {
+                                            if (!response.ok) {
                                                 document.getElementById("convertingProgressBar").className = "errorBar";
                                                 document.getElementById("convertingProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
                                                 document.getElementById("console").hidden = false;
@@ -191,7 +191,7 @@ function handleForm(event) {
                                             fetch(requestForSendingToS3)
                                                 .then((response) => {
                                                     console.log(response);
-                                                    if (response.status != 200) {
+                                                    if (!response.ok) {
                                                         document.getElementById("uploadToS3ProgressBar").className = "errorBar";
                                                         document.getElementById("uploadToS3ProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
                                                         showOKButton(true);
