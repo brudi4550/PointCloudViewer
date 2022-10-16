@@ -144,6 +144,13 @@ function authenticate(req, callback) {
 module.exports = function (app) {
 
     app.patch('/convertFile/:pointcloudId', (req, res) => {
+        try {
+            fs.statSync(path.join(__basedir, 'PotreeConverter'));
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                return res.status(400).send('ERROR: folder \"PotreeConverter\" does not exist. As developer, please ensure you have executed \"install.sh\".');
+            }
+        }
         let responseAlreadySent = false; // without this, server would respond 2 times and app crashes
         function callback(validAuth) {
             if (validAuth) {
@@ -364,44 +371,51 @@ module.exports = function (app) {
     ------------------------------------------------------------------------------
       prepares the server for an upcoming upload
         - creates pointcloud entry in database
-        - create directory for the planned upload 
+        - create directory for the planned upload
+      requires the following body:
+        - cloud_name: String (the unique cloud_name of a user)
     ============================================================================*/
     app.put('/multipart-upload/start-upload', (request, response) => {
         function callback(valid) {
             if (valid) {
                 const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las');
-                let userID,
-                    cloudID;
                 try {
-                    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, 0, UPLOAD_STATUS_ENUM.INITIALIZED, function (err, id) {
+                    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, async function (err, id) {
                         if (err) {
-                            return response
+                            // cloud entry may exist already, so override it
+                            await dbService.getPointcloudEntryByCloudnameAndUsername(request.body.cloud_name, request.session.userid, async function (err, cloud_entry) {
+                            if (err) {
+                                return response
                                 .status(500)
                                 .json("creating pointcloud entry failed", err)
-                        } else {
-                            cloudID = id;
-                            dbService.getUserIdByName(request.session.userid, function (err, id) {
+                            }
+                            await dbService.updatePointCloudEntry(cloud_entry.id, request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, function(err, result) {
                                 if (err) {
-                                    return response.status(500).send({ error: err.message })
+                                    return response
+                                    .status(500)
+                                    .json("creating pointcloud entry failed", err)
                                 }
-                                userID = id;
-                                // create directory for the planned upload
-                                fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, userID.toString(), cloudID.insertId.toString()));
-                                return response
-                                    .status(200)
-                                    .location("/multipart-upload/" + cloudID.toString())
-                                    .send({
-                                        // id: uploadID,
-                                        chunkSizeInBit: 1024 * 1024 / 2,
-                                        uploadCompleted: false
-                                    })
-                            });
+                                startUpload(cloud_entry.id);
+                            })
+                        });
+                        } else {
+                            startUpload(id.insertId);
                         }
                     });
                 } catch (err) {
                     return response
                         .status(500)
-                        .send("Unbekannter Fehler", err)
+                        .send("ERROR", err)
+                }
+                function startUpload(cloud_id) {
+                    dbService.getUserIdByName(request.session.userid, function (err, id) {
+                        if (err) {
+                            return response.status(500).send({ error: err.message })
+                        }
+                        // create directory for the planned upload
+                        fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, id.toString(), cloud_id.toString()));
+                        return response.status(200).send({message: "ready for upload"});
+                    });
                 }
             } else {
                 response.status(401).send('Authentication failed.');
