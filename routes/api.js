@@ -284,7 +284,11 @@ module.exports = function (app) {
         authenticate(req, callback);
     })
 
-    app.delete('/:pointcloudName', (req, res) => {
+    /*============================================================================
+      DELETE: /pointcloud/:pointcloudName
+    ============================================================================*/
+
+    app.delete('/pointcloud/:pointcloudName', (req, res) => {
         console.log('delete request : ' + req.params['pointcloudName']);
         function callback(valid) {
             if (valid) {
@@ -333,12 +337,12 @@ module.exports = function (app) {
     })
 
     /*============================================================================
-      GET: /pointcloud/:cloud_name
+      GET: /pointcloud/:pointcloudName
     ============================================================================*/
-    app.get('/pointcloud/:cloud_name', (request, response) => {
+    app.get('/pointcloud/:pointcloudName', (request, response) => {
         function callback(valid) {
             if (valid) {
-                dbService.getPointcloudEntryByCloudnameAndUsername(request.params.cloud_name, request.session.userid, function (err, result) {
+                dbService.getPointcloudEntryByCloudnameAndUsername(request.params.pointcloudName, request.session.userid, function (err, result) {
                     if (err && err.message.startsWith("pointcloud not found with name = ")) {
                         return response
                             .status(404)
