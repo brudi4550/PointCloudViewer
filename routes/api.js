@@ -471,7 +471,6 @@ module.exports = function (app) {
             dbService.setNewSession(username, Date.now(), (error, result) => {
                 if (error) {
                     console.log('Error when trying to set new session in database: ' + error);
-                    console.log('API probably didnt get called through web interface');
                 } else {
                     console.log('New session was created');
                     req.session.userid = req.body.username;
