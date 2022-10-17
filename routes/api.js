@@ -144,6 +144,13 @@ function authenticate(req, callback) {
 module.exports = function (app) {
 
     app.patch('/convertFile/:pointcloudId', (req, res) => {
+        try {
+            fs.statSync(path.join(__basedir, 'PotreeConverter'));
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                return res.status(400).send('ERROR: folder \"PotreeConverter\" does not exist. As developer, please ensure you have executed \"install.sh\".');
+            }
+        }
         let responseAlreadySent = false; // without this, server would respond 2 times and app crashes
         function callback(validAuth) {
             if (validAuth) {
@@ -152,11 +159,11 @@ module.exports = function (app) {
                 dbService.getUserIdByName(username, (err, userId) => {
                     let convertCmd;
                     if (os.type == "Windows_NT") {
-                        convertCmd = spawn('cd ' + path.join(__basedir, 'PotreeConverter_2.1_x64_windows') +
+                        convertCmd = spawn('cd ' + path.join(__basedir, 'PotreeConverter') + 
                             ' && PotreeConverter.exe ' +
                             '\"' + path.join(__basedir, 'las', userId.toString(), pointcloudId, pointcloudId + '.las') + '\"' +
-                            ' && -o && ' +
-                            path.join(__basedir, 'las', userId.toString(), pointcloudId),
+                            '  -o  ' + 
+                            '\"' + path.join(__basedir, 'potree_output', userId.toString(), pointcloudId) + '\"',
                             [], { shell: true });
                     } else {
                         convertCmd = spawn(__basedir + '/PotreeConverter/build/PotreeConverter',
@@ -172,7 +179,7 @@ module.exports = function (app) {
                         if (dataString.indexOf("ERROR") != -1) {
                             if (!responseAlreadySent) {
                                 responseAlreadySent = true;
-                                return res.status(500).send('converting has failed: ' + dataString.substring(dataString.indexOf("ERROR")));
+                                return res.status(500).send('converting has failed: ' + dataString);
                             }
                         }
                         console.log(dataString);
@@ -287,7 +294,11 @@ module.exports = function (app) {
         authenticate(req, callback);
     })
 
-    app.delete('/:pointcloudName', (req, res) => {
+    /*============================================================================
+      DELETE: /pointcloud/:pointcloudName
+    ============================================================================*/
+
+    app.delete('/pointcloud/:pointcloudName', (req, res) => {
         console.log('delete request : ' + req.params['pointcloudName']);
         function callback(valid) {
             if (valid) {
@@ -336,12 +347,12 @@ module.exports = function (app) {
     })
 
     /*============================================================================
-      GET: /pointcloud/:cloud_name
+      GET: /pointcloud/:pointcloudName
     ============================================================================*/
-    app.get('/pointcloud/:cloud_name', (request, response) => {
+    app.get('/pointcloud/:pointcloudName', (request, response) => {
         function callback(valid) {
             if (valid) {
-                dbService.getPointcloudEntryByCloudnameAndUsername(request.params.cloud_name, request.session.userid, function (err, result) {
+                dbService.getPointcloudEntryByCloudnameAndUsername(request.params.pointcloudName, request.session.userid, function (err, result) {
                     if (err && err.message.startsWith("pointcloud not found with name = ")) {
                         return response
                             .status(404)
@@ -370,44 +381,51 @@ module.exports = function (app) {
     ------------------------------------------------------------------------------
       prepares the server for an upcoming upload
         - creates pointcloud entry in database
-        - create directory for the planned upload 
+        - create directory for the planned upload
+      requires the following body:
+        - cloud_name: String (the unique cloud_name of a user)
     ============================================================================*/
     app.put('/multipart-upload/start-upload', (request, response) => {
         function callback(valid) {
             if (valid) {
                 const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las');
-                let userID,
-                    cloudID;
                 try {
-                    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, 0, UPLOAD_STATUS_ENUM.INITIALIZED, function (err, id) {
+                    dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, async function (err, id) {
                         if (err) {
-                            return response
+                            // cloud entry may exist already, so override it
+                            await dbService.getPointcloudEntryByCloudnameAndUsername(request.body.cloud_name, request.session.userid, async function (err, cloud_entry) {
+                            if (err) {
+                                return response
                                 .status(500)
                                 .json("creating pointcloud entry failed", err)
-                        } else {
-                            cloudID = id;
-                            dbService.getUserIdByName(request.session.userid, function (err, id) {
+                            }
+                            await dbService.updatePointCloudEntry(cloud_entry.id, request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, function(err, result) {
                                 if (err) {
-                                    return response.status(500).send({ error: err.message })
+                                    return response
+                                    .status(500)
+                                    .json("creating pointcloud entry failed", err)
                                 }
-                                userID = id;
-                                // create directory for the planned upload
-                                fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, userID.toString(), cloudID.insertId.toString()));
-                                return response
-                                    .status(200)
-                                    .location("/multipart-upload/" + cloudID.toString())
-                                    .send({
-                                        // id: uploadID,
-                                        chunkSizeInBit: 1024 * 1024 / 2,
-                                        uploadCompleted: false
-                                    })
-                            });
+                                startUpload(cloud_entry.id);
+                            })
+                        });
+                        } else {
+                            startUpload(id.insertId);
                         }
                     });
                 } catch (err) {
                     return response
                         .status(500)
-                        .send("Unbekannter Fehler", err)
+                        .send("ERROR", err)
+                }
+                function startUpload(cloud_id) {
+                    dbService.getUserIdByName(request.session.userid, function (err, id) {
+                        if (err) {
+                            return response.status(500).send({ error: err.message })
+                        }
+                        // create directory for the planned upload
+                        fs.ensureDirSync(path.join(UPLOAD_FOLDER_PATH, id.toString(), cloud_id.toString()));
+                        return response.status(200).send({message: "ready for upload"});
+                    });
                 }
             } else {
                 response.status(401).send('Authentication failed.');

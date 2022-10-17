@@ -129,7 +129,7 @@ function handleForm(event) {
                             });
                             await fetch(request)
                                 .then(async (response) => {
-                                    if (response.status != 200) {
+                                    if (!response.ok) {
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressInformation").innerHTML = "error while uploading: server status response = " + response.status;
                                         showUploadControlButtons(false);
@@ -160,39 +160,45 @@ function handleForm(event) {
                             fetch(requestForCompleting)
                                 .then((response) => {
                                     console.log(response);
-                                    if (response.status != 200) {
+                                    if (!response.ok) {
                                         document.getElementById("uploadLasProgressBar").className = "errorBar";
                                         document.getElementById("uploadLasProgressBar").innerHTML = "error while uploading: server status response = " + response.status;
                                         showOKButton(true);
                                     }
+                                    // convert las to potree format
                                     let requestForConverting = new Request('convertFile/' + CLOUD_ID, {
                                         method: 'PATCH',
                                     })
-                                    // TODO: progress-bar animation
+                                    document.getElementById("convertingProgressBar").className = "animatedProgressBar";
                                     fetch(requestForConverting)
-                                        .then((response) => {
+                                        .then(async (response) => {
                                             showUploadControlButtons(false);
                                             console.log(response);
-                                            if (response.status != 200) {
+                                            if (!response.ok) {
                                                 document.getElementById("convertingProgressBar").className = "errorBar";
                                                 document.getElementById("convertingProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
+                                                document.getElementById("console").hidden = false;
+                                                document.getElementById("convertingConsoleOutput").innerHTML = await response.text();
                                                 showOKButton(true);
                                                 return;
                                             }
+                                            // upload to S3
                                             showConvertingSuccessful();
                                             let requestForSendingToS3 = new Request('sendToS3/' + CLOUD_ID, {
                                                 method: 'PATCH'
                                             })
+                                            document.getElementById("uploadToS3ProgressBar").className = "animatedProgressBar";
                                             fetch(requestForSendingToS3)
                                                 .then((response) => {
                                                     console.log(response);
-                                                    if (response.status != 200) {
+                                                    if (!response.ok) {
                                                         document.getElementById("uploadToS3ProgressBar").className = "errorBar";
                                                         document.getElementById("uploadToS3ProgressInformation").innerHTML = "error while converting: server status response = " + response.status;
                                                         showOKButton(true);
                                                         return;
                                                     }
                                                     showSendingToS3Successful();
+                                                    document.getElementById("generateHTMLPageProgressBar").className = "animatedProgressBar";
                                                     let requestToGenerateHTMLPage = new Request('generateHTMLPage/' + CLOUD_ID, {
                                                         method: 'PATCH'
                                                     })
@@ -239,16 +245,19 @@ function handleForm(event) {
     }
     function showConvertingSuccessful() {
         document.getElementById("convertingProgressInformation").innerHTML = "Successfully converted.";
+        document.getElementById("convertingProgressBar").className = "progressBar";
         document.getElementById("convertingProgressBar").style.backgroundSize = "100% 100%";
     }
 
     function showSendingToS3Successful() {
         document.getElementById("uploadToS3ProgressInformation").innerHTML = "Successfully uploaded to S3.";
+        document.getElementById("uploadToS3ProgressBar").className = "progressBar";
         document.getElementById("uploadToS3ProgressBar").style.backgroundSize = "100% 100%";
     }
 
     function showGeneratingHTMLPageSuccessful() {
         document.getElementById("generateHTMLPageProgressInformation").innerHTML = "Successfully uploaded HTML page to S3.";
+        document.getElementById("generateHTMLPageProgressBar").className = "progressBar";
         document.getElementById("generateHTMLPageProgressBar").style.backgroundSize = "100% 100%";
     }
 

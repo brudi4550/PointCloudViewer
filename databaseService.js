@@ -95,7 +95,7 @@ async function getPointcloudEntryByCloudnameAndUsername(cloudname, username, cal
 /*============================================================================
     @param user: can either be id or name
 ============================================================================*/
-async function createPointCloudEntry(user, cloud_name, public, upload_status, callback) { // public weg, standard private
+async function createPointCloudEntry(user, cloud_name, upload_status, callback) {
     try {
         let user_name;
         const db = makeDb();
@@ -105,14 +105,41 @@ async function createPointCloudEntry(user, cloud_name, public, upload_status, ca
         } else {
             user_name = user;
         }
-        let query = 'INSERT INTO  `pointcloudDB2`.`cloud_table` (cloud_name, created_by, public, upload_status) ' +
+        let query = 'INSERT INTO `cloud_table` (cloud_name, created_by, upload_status, public) ' +
             'VALUES (?, ?, ?, ?)';
         await withTransaction(db, async () => {
-            const result = await db.query(query, [cloud_name, user_name, public, upload_status]);
+            const result = await db.query(query, [cloud_name, user_name, upload_status, false]);
             callback(null, result)
         });
     } catch (err) {
-        console.error(err);
+        console.log("createPointCloudEntry", err);
+        callback(err);
+    }
+}
+
+/*============================================================================
+    @param user: can either be id or name
+============================================================================*/
+async function updatePointCloudEntry(cloud_id, user, cloud_name, upload_status, callback) {
+    try {
+        console.log("cloud_id: ", cloud_id, "user", user, "cloud_name", cloud_name, "upload_status", upload_status);
+        let user_name;
+        const db = makeDb();
+        if (user instanceof Number) {
+            let user_entry = await db.query('SELECT * FROM user_table WHERE id = ?', user);
+            user_name = user_entry[0].user_name;
+        } else {
+            user_name = user;
+        }
+        let query = 'UPDATE `cloud_table`' +
+                    'SET cloud_name = ?, created_by = ?, upload_status = ? ' +
+                    'WHERE id = ?';
+        await withTransaction(db, async () => {
+            const result = await db.query(query, [cloud_name, user_name, upload_status, cloud_id]);
+            callback(null, result)
+        });
+    } catch (err) {
+        console.log("updatePointCloudEntry", err);
         callback(err);
     }
 }
@@ -136,6 +163,23 @@ async function privateClouds(username, callback) {
         const db = makeDb();
         let query = 'SELECT cloud_name, link, public FROM cloud_table ' +
             'WHERE ((public = FALSE and created_by = ?) or public = TRUE)';
+        await withTransaction(db, async () => {
+            const result = await db.query(query, [username, "COMPLETED"]);
+            callback(null, result, true)
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
+    }
+}
+
+async function onlyPrivateClouds(username, callback) {
+    try {
+        const db = makeDb();
+        let query = 'SELECT cloud_table.id cloud_id,  user_table.id user_id '+
+            'FROM cloud_table, user_table ' + 
+            'WHERE cloud_table.created_by = user_table.user_name ' + 
+            'and cloud_table.public = FALSE and cloud_table.created_by = ?;';
         await withTransaction(db, async () => {
             const result = await db.query(query, [username, "COMPLETED"]);
             callback(null, result, true)
@@ -270,6 +314,22 @@ async function deleteCloud(cloudName, username, callback) {
     }
 }
 
+async function deleteUser(username, callback) {
+    try {
+        if(username === undefined) {
+            throw err("No username was provided");
+        }
+        const db = makeDb();
+        await withTransaction(db, async () => {
+            const result = await db.query('DELETE FROM user_table WHERE user_name = ?;', [username]);
+            callback(null, result);
+        });
+    } catch (err) {
+        console.error(err);
+        callback(err);
+    }
+}
+
 async function getUserEntryById(id, callback) {
     try {
         if (!(id instanceof number)) {
@@ -333,6 +393,7 @@ async function updateLink(link, username, pointcloudId, callback) {
 module.exports = {
     publicClouds,
     privateClouds,
+    onlyPrivateClouds,
     checkSession,
     setNewSession,
     createNewUser,
@@ -344,5 +405,7 @@ module.exports = {
     authenticateAction,
     authenticateUser,
     deleteCloud,
-    updateLink
+    deleteUser,
+    updateLink,
+    updatePointCloudEntry
 };
