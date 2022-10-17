@@ -216,6 +216,16 @@ module.exports = function (app) {
                     s3multipartUpload(localPath + 'metadata.json', s3path + 'metadata.json', 'application/json');
                     s3multipartUpload(localPath + 'octree.bin', s3path + 'octree.bin', 'application/octet-stream', () => {
                         cleanUpFiles(userId);
+                        dbService.setNewSession(username, Date.now(), (error, result) => {
+                            if (error) {
+                                console.log('Error when trying to set new session in database: ' + error);
+                                console.log('API probably didnt get called through web interface');
+                            } else {
+                                console.log('New session was created');
+                                req.session.userid = req.body.username;
+                                res.session = req.session;
+                            }
+                        });
                         res.status(200).send('sent to s3');
                     });
                 });
@@ -457,6 +467,16 @@ module.exports = function (app) {
         dbService.getUserIdByName(request.session.userid, function (err, user_id) {
             if (err) { throw new Error(err.message); }
             const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las', user_id.toString(), request.body.id);
+            const username = getUsername(request);
+            dbService.setNewSession(username, Date.now(), (error, result) => {
+                if (error) {
+                    console.log('Error when trying to set new session in database: ' + error);
+                } else {
+                    console.log('New session was created');
+                    req.session.userid = req.body.username;
+                    res.session = req.session;
+                }
+            });
             if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
                 return response
                     .status(500)
