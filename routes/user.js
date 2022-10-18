@@ -86,9 +86,9 @@ module.exports = function (app) {
                     titel: 'Create new User - PointCloudViewer'
                 })
             } else {
-                res.render('successPage', {
-                    message: 'A new user was created',
-                    title: 'success - PointCloudViewer'
+                res.render('userCreated', {
+                    message: 'A new user with the name ' + req.body.username + ' was created.',
+                    title: 'Success - PointCloudViewer'
                 })
             }
         }
