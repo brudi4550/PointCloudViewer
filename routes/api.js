@@ -197,7 +197,7 @@ module.exports = function (app) {
                     })
                 })
             } else {
-                return res.send('authentication has not been successful');
+                return res.status(401).send('authentication has not been successful');
             }
         }
         authenticate(req, callback);
@@ -220,7 +220,7 @@ module.exports = function (app) {
                     });
                 });
             } else {
-                res.send('authentication has not been successful');
+                res.status(401).send('authentication has not been successful');
             }
         }
         authenticate(req, callback);
@@ -253,6 +253,8 @@ module.exports = function (app) {
                         res.send('HTML page generated');
                     });
                 });
+            } else {
+                res.status(401).send('authentication has not been successful');
             }
         }
         authenticate(req, callback);
@@ -378,6 +380,11 @@ module.exports = function (app) {
     app.put('/multipart-upload/start-upload', (request, response) => {
         function callback(valid) {
             if (valid) {
+                if (!request.body.hasOwnProperty("cloud_name")) {
+                    return response
+                        .status(400)
+                        .send("Invalid Request Body: cloud_name not set");
+                }
                 const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las');
                 try {
                     dbService.createPointCloudEntry(request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, async function (err, id) {
@@ -386,14 +393,14 @@ module.exports = function (app) {
                             await dbService.getPointcloudEntryByCloudnameAndUsername(request.body.cloud_name, request.session.userid, async function (err, cloud_entry) {
                             if (err) {
                                 return response
-                                .status(500)
-                                .json("creating pointcloud entry failed", err)
+                                    .status(500)
+                                    .json("creating pointcloud entry failed", err)
                             }
                             await dbService.updatePointCloudEntry(cloud_entry.id, request.session.userid, request.body.cloud_name, UPLOAD_STATUS_ENUM.INITIALIZED, function(err, result) {
                                 if (err) {
                                     return response
-                                    .status(500)
-                                    .json("creating pointcloud entry failed", err)
+                                        .status(500)
+                                        .json("creating pointcloud entry failed", err)
                                 }
                                 startUpload(cloud_entry.id);
                             })
@@ -427,51 +434,90 @@ module.exports = function (app) {
     /*============================================================================
       PUT: /multipart-upload
     ============================================================================*/
+    class HttpError extends Error {
+        constructor (message, statusCode) {
+            super(message);
+            this.statusCode = statusCode;
+        }
+    }
     // storage controls the server-side disk-storage of the incoming files
     const STORAGE = multer.diskStorage({
         destination: function (request, file, callback) {
-            dbService.getUserIdByName(request.session.userid, function (err, user_id) {
-                if (err) {
-                    throw new Error(err.message);
-                }
-                callback(null, path.join(__dirname, '..', 'las', user_id.toString(), request.body.id));
-            })
+            if (!(Boolean(request.body.id) && Boolean(request.body.part))) {
+                callback(new HttpError("Invalid Request Body: id or part not set", 400));
+            } else {
+                dbService.getUserIdByName(getUsername(request), function (err, user_id) {
+                    if (err) {
+                        callback(new HttpError(err.message, 500));
+                    } else {
+                        callback(null, path.join(__dirname, '..', 'las', user_id.toString(), request.body.id));
+                    }
+                })
+            }
         },
         filename: function (request, file, callback) {
-            callback(null, file.originalname + request.body.part);
+            if (!(Boolean(request.body.id) && Boolean(request.body.part))) {
+                callback(new HttpError("Invalid Request Body: id or part not set", 400));
+            } else {
+                callback(null, "blob" + request.body.part);
+            }
         },
     });
-    const UPLOAD = multer({ storage: STORAGE });
+    let upload = multer({ storage: STORAGE }).single("fileToUpload");
 
-    app.put('/multipart-upload', UPLOAD.single("fileToUpload"), (request, response) => {
-        // uploaded binary data already saved at this point
-        return response
-            .status(200)
-            .json("Multipart-Upload erfolgreich.");
+    app.put('/multipart-upload', (request, response) => {
+        upload(request, response, function (error) {
+            authenticate(request, authCallback);
+            function authCallback(valid) {
+                if (!valid) {
+                    return response.status(401).send('Authentication failed.');
+                } else {
+                    if (Object.entries(request.body).length === 0) {
+                        return response.status(400).json("request body missing");
+                    } else if (error instanceof multer.MulterError) {
+                        return response.status(500).send(error.message);
+                    } else if (error instanceof HttpError) {
+                        return response.status(error.statusCode).send(error.message);
+                    } else {
+                        // uploaded binary data successfully saved at this point
+                        return response.status(200).json("Multipart-Upload successful.");
+                    }
+                }
+            }
+        })
     });
 
     /*============================================================================
       POST: /multipart-upload/complete-upload
     ============================================================================*/
     app.post('/multipart-upload/complete-upload', (request, response) => {
-        dbService.getUserIdByName(request.session.userid, function (err, user_id) {
-            if (err) { throw new Error(err.message); }
-            const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las', user_id.toString(), request.body.id);
-            if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
-                return response
-                    .status(500)
-                    .json("Putting the upload parts together failed.");
+        authenticate(request, authCallback);
+        function authCallback(valid) {
+            if (valid) {
+                if (!(Boolean(request.body.id))) {
+                    return response.status(400).send("Invalid Request Body: id not set");
+                }
+                dbService.getUserIdByName(getUsername(request), function (err, user_id) {
+                    if (err) { throw new Error(err.message); }
+                    const UPLOAD_FOLDER_PATH = path.join(__dirname, '..', 'las', user_id.toString(), request.body.id);
+                    if (!mergeUploadedChunksIntoFinalFile(user_id, request.body.id)) {
+                        return response
+                            .status(500)
+                            .json("Putting the upload parts together failed.");
+                    }
+                    if (!deleteChunks(UPLOAD_FOLDER_PATH)) {
+                        return response
+                            .status(500)
+                            .json("Successfully put the upload parts together, but an error occurred when deleting the upload parts.");
+                    }
+                    return response
+                        .status(200)
+                        .json("Multipart upload successfully completed.");
+                })
+            } else {
+                return response.status(401).send('Authentication failed.');
             }
-            if (!deleteChunks(UPLOAD_FOLDER_PATH)) {
-                return response
-                    .status(500)
-                    .json("Successfully put the upload parts together, but an error occurred when deleting the upload parts.");
-            }
-            return response
-                .status(200)
-                .json("Multipart upload successfully completed.");
-        })
-
+        }
     });
 
     function mergeUploadedChunksIntoFinalFile(user_id, cloud_id) {
